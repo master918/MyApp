@@ -22,9 +22,7 @@ namespace MyApp
             Preferences.Set("IsLoggedIn", false);
 
             // Переход на страницу входа
-            await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
-
-            //await Shell.Current.GoToAsync("//LoginPage");
+            await Shell.Current.GoToAsync("//LoginPage");
         }
     }
 }

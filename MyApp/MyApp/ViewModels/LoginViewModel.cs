@@ -43,12 +43,12 @@ namespace MyApp.ViewModels
         private async void OnLoginClicked(object obj)
         {        
             // Пример проверки логина и пароля
-            if (username == "" && password == "") //
+            if (username == "1" && password == "1") //
             {
                 // Сохранение состояния входа
                 Preferences.Set("IsLoggedIn", true);
-                Username = "";
-                Password = "";
+                Username = null;
+                Password = null;
                 await Shell.Current.GoToAsync($"//{nameof(AboutPage)}");
             }
             else 
