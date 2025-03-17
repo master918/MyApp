@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:d="http://xamarin.com/schemas/2014/forms/design"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             x:Class="MyApp.Views.LoginPage"
+             Shell.NavBarIsVisible="False">
+
+    <ContentPage.Content>
+        <StackLayout VerticalOptions="Center" HorizontalOptions="Center" WidthRequest="300">
+            <!-- Заголовок -->
+            <Label Text="Вход в систему" 
+                   FontSize="24" 
+                   FontAttributes="Bold" 
+                   HorizontalOptions="Center" 
+                   Margin="0,0,0,20"
+                   TextColor="Black" />
+
+            <!-- Поле для логина -->
+            <Label Text="Логин:" 
+                   FontSize="14" 
+                   TextColor="Black" />
+
+            <!-- Рамка для поля ввода логина -->
+            <Frame BorderColor="Gray" 
+                   CornerRadius="5" 
+                   Padding="10" 
+                   HasShadow="False">
+                <Entry x:Name="UsernameEntry" 
+                       FontSize="14" 
+                       Placeholder="Введите логин" 
+                       PlaceholderColor="Gray"
+                       Text="{Binding Username}"
+                       TextColor="Black" />
+            </Frame>
+
+            <!-- Поле для пароля -->
+            <Label Text="Пароль:" 
+                   FontSize="14" 
+                   TextColor="Black" />
+
+            <!-- Рамка для поля ввода пароля -->
+            <Frame BorderColor="Gray" 
+                   CornerRadius="5" 
+                   Padding="10" 
+                   HasShadow="False">
+                <Entry x:Name="PasswordEntry" 
+                       FontSize="14" 
+                       Placeholder="Введите пароль" 
+                       PlaceholderColor="Gray"
+                       IsPassword="True"
+                       Text="{Binding Password}" 
+                       TextColor="Black" />
+            </Frame>
+
+            <!-- Кнопка входа -->
+            <Button x:Name="LoginButton" 
+                    Text="Войти" 
+                    FontSize="16" 
+                    Padding="10,5" 
+                    HorizontalOptions="FillAndExpand" 
+                    Command="{Binding LoginCommand}"
+                    TextColor="White"
+                    BackgroundColor="#007BFF" />
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>
