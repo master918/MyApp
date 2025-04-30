@@ -1,6 +1,9 @@
-﻿using MyApp.Views;
+﻿using MyApp.Models;
+using MyApp.Services;
+using MyApp.Views;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text;
 using System.Threading.Tasks;
@@ -35,15 +38,33 @@ namespace MyApp.ViewModels
             }
         }
 
+        public ObservableCollection<Item> Items { get; } = new ObservableCollection<Item>();
+
         public LoginViewModel()
         {
             LoginCommand = new Command(OnLoginClicked);
         }
 
+        private async Task LoadDataAsync()
+        {
+            GoogleService service = new GoogleService();
+            var sheetData = await service.GetSheetDataAsync(); // Ожидание завершения асинхронного операции
+
+            foreach (var row in sheetData)
+            {
+                Items.Add(new Item
+                {
+                    Id = row[0]?.ToString() ?? string.Empty,
+                    Text = row[1]?.ToString() ?? string.Empty,
+                });
+            }
+        }
+
         private async void OnLoginClicked(object obj)
-        {        
+        {
+            await LoadDataAsync();
             // Пример проверки логина и пароля
-            if (username == "1" && password == "1") //
+            if (username == "1" && password == "1")
             {
                 // Сохранение состояния входа
                 Preferences.Set("IsLoggedIn", true);
