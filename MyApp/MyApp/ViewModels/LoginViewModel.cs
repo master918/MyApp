@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Xamarin.Essentials;
@@ -38,36 +39,44 @@ namespace MyApp.ViewModels
             }
         }
 
-        public ObservableCollection<Item> Items { get; } = new ObservableCollection<Item>();
+        public ObservableCollection<LogPass> LogPasses { get; } = new ObservableCollection<LogPass>();
 
         public LoginViewModel()
         {
             LoginCommand = new Command(OnLoginClicked);
+            InitializeAsync();
         }
+        private async void InitializeAsync(){ await LoadDataAsync(); }
 
-        private async Task LoadDataAsync()
+        public async Task LoadDataAsync()
         {
+            LogPasses.Clear();
             GoogleService service = new GoogleService();
             var sheetData = await service.GetSheetDataAsync(); // Ожидание завершения асинхронного операции
 
             foreach (var row in sheetData)
             {
-                Items.Add(new Item
+                LogPasses.Add(new LogPass
                 {
-                    Id = row[0]?.ToString() ?? string.Empty,
-                    Text = row[1]?.ToString() ?? string.Empty,
+                    Id = row[0]?.ToString() ?? null,
+                    Login = (row.Count > 1) ? row[1]?.ToString() ?? null : null,
+                    Password = (row.Count > 2) ? row[2]?.ToString() ?? null : null,
                 });
             }
         }
 
         private async void OnLoginClicked(object obj)
         {
-            await LoadDataAsync();
             // Пример проверки логина и пароля
-            if (username == "1" && password == "1")
+            if (LogPasses.Any(i => i.Login == username && i.Password == password))
             {
                 // Сохранение состояния входа
                 Preferences.Set("IsLoggedIn", true);
+                // Получение Id первого совпадения
+                string accountId = (from i in LogPasses
+                                 where i.Login == username && i.Password == password
+                                 select i.Id.ToString()).FirstOrDefault();
+                Preferences.Set("AccountId", accountId);
                 Username = null;
                 Password = null;
                 await Shell.Current.GoToAsync($"//{nameof(AboutPage)}");

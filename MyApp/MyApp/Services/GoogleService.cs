@@ -52,7 +52,7 @@ namespace MyApp.Services
 
                         // 4. Запрос данных
                         string spreadsheetId = "1QCxjyn23nYLnRcwS-3hvFwq0qd6_t9hnhz6NlQ1iX64";
-                        string range = "Authorization!A:B";
+                        string range = "Authorization!A:C";
                         var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
 
                         var response = await request.ExecuteAsync();

@@ -20,6 +20,7 @@ namespace MyApp
         {
             // Сброс состояния входа
             Preferences.Set("IsLoggedIn", false);
+            Preferences.Set("AccountId", null);
 
             // Переход на страницу входа
             await Shell.Current.GoToAsync("//LoginPage");

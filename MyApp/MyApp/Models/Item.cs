@@ -8,4 +8,11 @@ namespace MyApp.Models
         public string Text { get; set; }
         public string Description { get; set; }
     }
+
+    public class LogPass
+    {
+        public string Id { get; set; }
+        public string Login { get; set; }
+        public string Password { get; set; }
+    }
 }
