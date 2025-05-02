@@ -63,6 +63,14 @@
                     Command="{Binding LoginCommand}"
                     TextColor="White"
                     BackgroundColor="#007BFF" />
+
+            <!-- Кнопка настроек - упрощенная версия без проверки на null -->
+            <Button Text="Настройки" 
+                    Command="{Binding GoToSettingsCommand}"
+                    HorizontalOptions="FillAndExpand"
+                    Margin="0,10,0,0"
+                    BackgroundColor="LightGray"
+                    TextColor="Black"/>
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>

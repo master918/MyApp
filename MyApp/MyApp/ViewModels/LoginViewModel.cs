@@ -19,6 +19,21 @@ namespace MyApp.ViewModels
         private string username;
         private string password;
 
+        public Command GoToSettingsCommand { get; }
+
+        public LoginViewModel()
+        {
+            LoginCommand = new Command(OnLoginClicked);
+            GoToSettingsCommand = new Command(OnGoToSettings);
+            InitializeAsync();
+        }
+
+        private async void OnGoToSettings()
+        {
+            await Shell.Current.GoToAsync(nameof(SettingsPage));
+        }
+
+
         public string Username
         {
             get => username;
@@ -41,11 +56,6 @@ namespace MyApp.ViewModels
 
         public ObservableCollection<LogPass> LogPasses { get; } = new ObservableCollection<LogPass>();
 
-        public LoginViewModel()
-        {
-            LoginCommand = new Command(OnLoginClicked);
-            InitializeAsync();
-        }
         private async void InitializeAsync(){ await LoadDataAsync(); }
 
         public async Task LoadDataAsync()
@@ -67,21 +77,20 @@ namespace MyApp.ViewModels
 
         private async void OnLoginClicked(object obj)
         {
-            // Пример проверки логина и пароля
             if (LogPasses.Any(i => i.Login == username && i.Password == password))
             {
-                // Сохранение состояния входа
                 Preferences.Set("IsLoggedIn", true);
-                // Получение Id первого совпадения
                 string accountId = (from i in LogPasses
-                                 where i.Login == username && i.Password == password
-                                 select i.Id.ToString()).FirstOrDefault();
+                                    where i.Login == username && i.Password == password
+                                    select i.Id.ToString()).FirstOrDefault();
                 Preferences.Set("AccountId", accountId);
-                Username = null;
-                Password = null;
+
+                // Обновляем FlyoutBehavior
+                (App.Current.MainPage as AppShell)?.UpdateFlyoutBehavior();
+
                 await Shell.Current.GoToAsync($"//{nameof(AboutPage)}");
             }
-            else 
+            else
             {
                 await Application.Current.MainPage.DisplayAlert("Ошибка", "Неверный логин или пароль!", "OK");
             }

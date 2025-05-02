@@ -15,14 +15,16 @@ namespace MyApp
         public App()
         {
             InitializeComponent();
-            DependencyService.Register<MockDataStore>();
 
             // Устанавливаем начальную страницу
             MainPage = new AppShell();
+            Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
+            Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
         }
 
         protected override void OnStart()
         {
+            if (Shell.Current == null) return;
             if (Preferences.Get("IsLoggedIn", false))
             {
                 Shell.Current.GoToAsync($"//{nameof(AboutPage)}");
@@ -33,12 +35,8 @@ namespace MyApp
             }
         }
 
-        protected override void OnSleep()
-        {
-        }
+        protected override void OnSleep() { }
 
-        protected override void OnResume()
-        {
-        }
+        protected override void OnResume() { }        
     }
 }
