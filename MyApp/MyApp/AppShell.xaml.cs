@@ -1,28 +1,35 @@
 ﻿using System;
-using System.Collections.Generic;
-using MyApp.ViewModels;
-using MyApp.Views;
 using Xamarin.Essentials;
 using Xamarin.Forms;
 
 namespace MyApp
 {
-    public partial class AppShell : Xamarin.Forms.Shell
+    public partial class AppShell : Shell
     {
         public AppShell()
         {
             InitializeComponent();
-            Routing.RegisterRoute(nameof(ItemDetailPage), typeof(ItemDetailPage));
-            Routing.RegisterRoute(nameof(NewItemPage), typeof(NewItemPage));
+            UpdateFlyoutBehavior();
         }
 
         private async void OnMenuItemClicked(object sender, EventArgs e)
         {
-            // Сброс состояния входа
-            Preferences.Set("IsLoggedIn", false);
+            ResetAuthAndNavigate();
+        }
 
-            // Переход на страницу входа
-            await Shell.Current.GoToAsync("//LoginPage");
+        public void ResetAuthAndNavigate()
+        {
+            Preferences.Set("IsLoggedIn", false);
+            Preferences.Set("AccountId", string.Empty);
+            UpdateFlyoutBehavior();
+            Shell.Current.GoToAsync("//LoginPage");
+        }
+
+        public void UpdateFlyoutBehavior()
+        {
+            FlyoutBehavior = Preferences.Get("IsLoggedIn", false)
+                ? FlyoutBehavior.Flyout
+                : FlyoutBehavior.Disabled;
         }
     }
 }

@@ -2,14 +2,15 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
 using Newtonsoft.Json;
+using Xamarin.Essentials;
 using Xamarin.Forms;
+
 
 namespace MyApp.Services
 {
@@ -17,53 +18,197 @@ namespace MyApp.Services
     {
         public class GoogleServiceAccountCreds
         {
+            public string type { get; set; }
+            public string project_id { get; set; }
+            public string private_key_id { get; set; }
             public string private_key { get; set; }
             public string client_email { get; set; }
+            public string client_id { get; set; }
+            public string auth_uri { get; set; }
+            public string token_uri { get; set; }
+            public string auth_provider_x509_cert_url { get; set; }
+            public string client_x509_cert_url { get; set; }
+        }
+        private string _temporaryCredentials;
+        private const string DefaultRange = "Authorization!A:C";
+        private const string CredentialsFileName = "credentials.json";
+        private const string CredentialsKey = "GoogleServiceCredentials";
+
+        public async Task<bool> HasValidSettings()
+        {
+            var hasCredentials = !string.IsNullOrEmpty(GetCredentialsJson());
+            var hasSpreadsheetId = !string.IsNullOrEmpty(Preferences.Get("SpreadsheetId", null));
+
+            return hasCredentials && hasSpreadsheetId;
+        }
+
+        public void ResetAuthSettings()
+        {
+            Preferences.Set("IsLoggedIn", false);
+            Preferences.Set("AccountId", string.Empty);
+        }
+
+        public string CurrentServiceAccount { get; private set; }
+
+        public GoogleService()
+        {
+            LoadCurrentServiceAccount();
+        }
+
+        private void LoadCurrentServiceAccount()
+        {
+            try
+            {
+                var json = GetCredentialsJson();
+                if (!string.IsNullOrEmpty(json))
+                {
+                    var creds = JsonConvert.DeserializeObject<GoogleServiceAccountCreds>(json);
+                    CurrentServiceAccount = creds.client_email;
+                }
+                else
+                {
+                    CurrentServiceAccount = "Не настроен";
+                }
+            }
+            catch
+            {
+                CurrentServiceAccount = "Ошибка загрузки";
+            }
+        }
+
+        public async Task<bool> UploadNewCredentials(string json, bool permanentSave = false)
+        {
+            try
+            {
+                var creds = JsonConvert.DeserializeObject<GoogleServiceAccountCreds>(json);
+                if (creds?.client_email == null)
+                    return false;
+
+                await SecureStorage.SetAsync(CredentialsKey, json);
+                CurrentServiceAccount = creds.client_email;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private string GetCredentialsJson()
+        {
+            // Сначала проверяем временные credentials (для проверки)
+            if (!string.IsNullOrEmpty(_temporaryCredentials))
+                return _temporaryCredentials;
+
+            // Затем проверяем сохраненные в SecureStorage
+            var secureStorageTask = SecureStorage.GetAsync(CredentialsKey);
+            secureStorageTask.Wait(); // Блокируем, так как в конструкторе нельзя async
+            var secureCredentials = secureStorageTask.Result;
+
+            if (!string.IsNullOrEmpty(secureCredentials))
+                return secureCredentials;
+
+            // Затем проверяем локальный файл (если сохраняли)
+            var localPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), CredentialsFileName);
+            if (File.Exists(localPath))
+                return File.ReadAllText(localPath);
+
+            // Если нет сохраненных, используем встроенный файл
+            var assembly = IntrospectionExtensions.GetTypeInfo(typeof(GoogleService)).Assembly;
+            using (var stream = assembly.GetManifestResourceStream($"MyApp.Services.{CredentialsFileName}"))
+            {
+                if (stream != null)
+                {
+                    using (var reader = new StreamReader(stream))
+                    {
+                        return reader.ReadToEnd();
+                    }
+                }
+            }
+
+            return null;
         }
 
         public async Task<IList<IList<object>>> GetSheetDataAsync()
         {
             try
             {
-                // 1. Загрузка credentials.json из ресурсов
-                var assembly = IntrospectionExtensions.GetTypeInfo(typeof(GoogleService)).Assembly;
-                using (var stream = assembly.GetManifestResourceStream("MyApp.Services.credentials.json"))
+                var currentSpreadsheetId = Preferences.Get("SpreadsheetId", null);
+                if (string.IsNullOrEmpty(currentSpreadsheetId))
                 {
-                    using (var reader = new StreamReader(stream))
-                    {
-                        var json = await reader.ReadToEndAsync();
-                        var creds = JsonConvert.DeserializeObject<GoogleServiceAccountCreds>(json);
-
-                        // 2. Аутентификация
-                        var credential = new ServiceAccountCredential(
-                            new ServiceAccountCredential.Initializer(creds.client_email)
-                            {
-                                Scopes = new[] { SheetsService.Scope.Spreadsheets }
-                            }.FromPrivateKey(creds.private_key));
-
-
-                        // 3. Создание сервиса
-                        var service = new SheetsService(new BaseClientService.Initializer
-                        {
-                            HttpClientInitializer = credential,
-                            ApplicationName = "MyApp",
-                        });
-
-
-                        // 4. Запрос данных
-                        string spreadsheetId = "1QCxjyn23nYLnRcwS-3hvFwq0qd6_t9hnhz6NlQ1iX64";
-                        string range = "Sheet1!A1:C3";
-                        var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
-
-                        var response = await request.ExecuteAsync();
-                        return response.Values ?? new List<IList<object>>();
-                    }
+                    throw new InvalidOperationException("Не указана ссылка на документ");
                 }
+
+                var json = GetCredentialsJson();
+                if (string.IsNullOrEmpty(json))
+                {
+                    throw new InvalidOperationException("Реквизиты Service account не найдены");
+                }
+
+                var creds = JsonConvert.DeserializeObject<GoogleServiceAccountCreds>(json);
+
+                var credential = new ServiceAccountCredential(
+                    new ServiceAccountCredential.Initializer(creds.client_email)
+                    {
+                        Scopes = new[] { SheetsService.Scope.Spreadsheets }
+                    }.FromPrivateKey(creds.private_key));
+
+                var service = new SheetsService(new BaseClientService.Initializer
+                {
+                    HttpClientInitializer = credential,
+                    ApplicationName = "MyApp",
+                });
+
+                var request = service.Spreadsheets.Values.Get(currentSpreadsheetId, DefaultRange);
+                var response = await request.ExecuteAsync();
+
+                return response.Values ?? new List<IList<object>>();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка: {ex}");
+                Console.WriteLine($"Ошибка при получении данных: {ex}");
                 throw;
+            }
+        }
+
+        public async Task<bool> TestConnectionAsync(string spreadsheetId = null)
+        {
+            try
+            {
+                var currentSpreadsheetId = spreadsheetId ?? Preferences.Get("SpreadsheetId", null);
+                if (string.IsNullOrEmpty(currentSpreadsheetId))
+                {
+                    return false;
+                }
+
+                var json = GetCredentialsJson();
+                if (string.IsNullOrEmpty(json))
+                {
+                    return false;
+                }
+
+                var creds = JsonConvert.DeserializeObject<GoogleServiceAccountCreds>(json);
+
+                var credential = new ServiceAccountCredential(
+                    new ServiceAccountCredential.Initializer(creds.client_email)
+                    {
+                        Scopes = new[] { SheetsService.Scope.Spreadsheets }
+                    }.FromPrivateKey(creds.private_key));
+
+                var service = new SheetsService(new BaseClientService.Initializer
+                {
+                    HttpClientInitializer = credential,
+                    ApplicationName = "MyApp",
+                });
+
+                var request = service.Spreadsheets.Get(currentSpreadsheetId);
+                var response = await request.ExecuteAsync();
+
+                return response != null;
+            }
+            catch
+            {
+                return false;
             }
         }
     }
