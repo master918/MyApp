@@ -14,10 +14,15 @@ namespace MyApp
 
         private async void OnMenuItemClicked(object sender, EventArgs e)
         {
+            ResetAuthAndNavigate();
+        }
+
+        public void ResetAuthAndNavigate()
+        {
             Preferences.Set("IsLoggedIn", false);
-            Preferences.Set("AccountId", null);
+            Preferences.Set("AccountId", string.Empty);
             UpdateFlyoutBehavior();
-            await Shell.Current.GoToAsync("//LoginPage");
+            Shell.Current.GoToAsync("//LoginPage");
         }
 
         public void UpdateFlyoutBehavior()
