@@ -12,7 +12,7 @@ namespace MyApp
             UpdateFlyoutBehavior();
         }
 
-        private async void OnMenuItemClicked(object sender, EventArgs e)
+        private void OnMenuItemClicked(object sender, EventArgs e)
         {
             ResetAuthAndNavigate();
         }
