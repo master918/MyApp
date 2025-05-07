@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -7,6 +8,7 @@ using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
+using MyApp.Models;
 using Newtonsoft.Json;
 using Xamarin.Essentials;
 using Xamarin.Forms;
@@ -52,9 +54,33 @@ namespace MyApp.Services
 
         public GoogleService()
         {
+            TryLoadEmbeddedCredentials();
             LoadCurrentServiceAccount();
         }
 
+        private void TryLoadEmbeddedCredentials()
+        {
+            try
+            {
+                var assembly = IntrospectionExtensions.GetTypeInfo(typeof(GoogleService)).Assembly;
+                using (var stream = assembly.GetManifestResourceStream($"MyApp.Services.{CredentialsFileName}"))
+                {
+                    if (stream != null)
+                    {
+                        using (var reader = new StreamReader(stream))
+                        {
+                            var json = reader.ReadToEnd();
+                            // Сохраняем в SecureStorage
+                            SecureStorage.SetAsync(CredentialsKey, json).Wait();
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Игнорируем ошибки при загрузке встроенного файла
+            }
+        }
         private void LoadCurrentServiceAccount()
         {
             try
@@ -205,6 +231,102 @@ namespace MyApp.Services
             catch
             {
                 return false;
+            }
+        }
+
+        public async Task UploadInventoryData(InventoryItem currentItem)
+        {
+            var items = await DependencyService.Get<IDataStore<InventoryItem>>().GetItemsAsync();
+            var spreadsheetId = Preferences.Get("SpreadsheetId", null);
+
+            if (string.IsNullOrEmpty(spreadsheetId))
+            {
+                throw new InvalidOperationException("Не указан ID таблицы в настройках");
+            }
+
+            var json = GetCredentialsJson();
+            var creds = JsonConvert.DeserializeObject<GoogleServiceAccountCreds>(json);
+
+            var credential = new ServiceAccountCredential(
+                new ServiceAccountCredential.Initializer(creds.client_email)
+                {
+                    Scopes = new[] { SheetsService.Scope.Spreadsheets }
+                }.FromPrivateKey(creds.private_key));
+
+            var service = new SheetsService(new BaseClientService.Initializer
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = "MyApp",
+            });
+
+            // Определяем диапазон для записи
+            var range = $"{currentItem.StorageName}!A:G";
+
+            // Формируем данные
+            var values = new List<IList<object>>();
+            foreach (var item in items)
+            {
+                values.Add(new List<object>
+        {
+            item.Наименование,
+            item.Стеллаж,
+            item.Полка,
+            item.Место,
+            item.Количество_фактич,
+            item.Доп_описание,
+            DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+        });
+            }
+
+            var valueRange = new ValueRange { Values = values };
+            var request = service.Spreadsheets.Values.Append(valueRange, spreadsheetId, range);
+            request.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
+
+            await request.ExecuteAsync();
+        }
+
+        public async Task<List<string>> GetStorageListAsync()
+        {
+            try
+            {
+                var spreadsheetId = Preferences.Get("SpreadsheetId", null);
+                if (string.IsNullOrEmpty(spreadsheetId))
+                    throw new InvalidOperationException("Не указан ID таблицы");
+
+                var json = GetCredentialsJson();
+                if (string.IsNullOrEmpty(json))
+                    throw new InvalidOperationException("Реквизиты не найдены");
+
+                var creds = JsonConvert.DeserializeObject<GoogleServiceAccountCreds>(json);
+                var credential = new ServiceAccountCredential(
+                    new ServiceAccountCredential.Initializer(creds.client_email)
+                    {
+                        Scopes = new[] { SheetsService.Scope.Spreadsheets }
+                    }.FromPrivateKey(creds.private_key));
+
+                var service = new SheetsService(new BaseClientService.Initializer
+                {
+                    HttpClientInitializer = credential,
+                    ApplicationName = "MyApp",
+                });
+
+                var spreadsheet = await service.Spreadsheets.Get(spreadsheetId).ExecuteAsync();
+                var storageList = new List<string>();
+
+                foreach (var sheet in spreadsheet.Sheets)
+                {
+                    if (sheet.Properties.Title != "Authorization")
+                    {
+                        storageList.Add(sheet.Properties.Title);
+                    }
+                }
+
+                return storageList;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка при получении списка хранилищ: {ex}");
+                throw;
             }
         }
     }

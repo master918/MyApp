@@ -1,4 +1,4 @@
-﻿using MyApp.Services;
+using MyApp.Services;
 using MyApp.Views;
 using System;
 using System.Collections.Generic;
