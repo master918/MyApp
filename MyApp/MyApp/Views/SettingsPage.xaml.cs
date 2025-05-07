@@ -10,13 +10,20 @@ using Xamarin.Forms.Xaml;
 
 namespace MyApp.Views
 {
-	[XamlCompilation(XamlCompilationOptions.Compile)]
-	public partial class SettingsPage : ContentPage
-	{
-		public SettingsPage ()
-		{
-			InitializeComponent ();
-			BindingContext = new SettingsViewModel();
-		}
-	}
+    [XamlCompilation(XamlCompilationOptions.Compile)]
+    public partial class SettingsPage : ContentPage
+    {
+        public SettingsPage()
+        {
+            InitializeComponent();
+            BindingContext = new SettingsViewModel();
+        }
+        private async void Editor_Completed(object sender, System.EventArgs e)
+        {
+            if (BindingContext is SettingsViewModel viewModel)
+            {
+                await viewModel.CheckConnection();
+            }
+        }
+    }
 }
