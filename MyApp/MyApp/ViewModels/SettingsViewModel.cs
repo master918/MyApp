@@ -14,8 +14,51 @@ namespace MyApp.ViewModels
     public class SettingsViewModel : BaseViewModel
     {
         private readonly GoogleService _googleService = new GoogleService();
+
         private string _currentServiceAccount;
+        public string CurrentServiceAccount
+        {
+            get => _currentServiceAccount;
+            set => SetProperty(ref _currentServiceAccount, value);
+        }
+
         private string _spreadsheetUrl;
+        public string SpreadsheetUrl
+        {
+            get => _spreadsheetUrl;
+            set
+            {
+                if (SetProperty(ref _spreadsheetUrl, value))
+                {
+                    OnPropertyChanged(nameof(IsSpreadsheetUrlValid));
+                }
+            }
+        }
+        public bool IsSpreadsheetUrlValid =>
+                    !string.IsNullOrWhiteSpace(SpreadsheetUrl) &&
+                    SpreadsheetUrl.StartsWith("https://docs.google.com/spreadsheets/");
+
+        private string _connectionStatusText;
+        public string ConnectionStatusText
+        {
+            get => _connectionStatusText;
+            set => SetProperty(ref _connectionStatusText, value);
+        }
+
+        private Color _connectionStatusColor;
+        public Color ConnectionStatusColor
+        {
+            get => _connectionStatusColor;
+            set => SetProperty(ref _connectionStatusColor, value);
+        }
+
+        private bool _isConnectionStatusVisible;
+        public bool IsConnectionStatusVisible
+        {
+            get => _isConnectionStatusVisible;
+            set => SetProperty(ref _isConnectionStatusVisible, value);
+        }
+
 
         public SettingsViewModel()
         {
@@ -50,43 +93,41 @@ namespace MyApp.ViewModels
                 : $"https://docs.google.com/spreadsheets/d/{spreadsheetId}/edit";
         }
 
-        public string SpreadsheetUrl
-        {
-            get => _spreadsheetUrl;
-            set => SetProperty(ref _spreadsheetUrl, value);
-        }
-       
-        public string CurrentServiceAccount
-        {
-            get => _currentServiceAccount;
-            set => SetProperty(ref _currentServiceAccount, value);
-        }
-
         public ICommand SaveCommand { get; }
         public ICommand CancelCommand { get; }
         public ICommand OpenSpreadsheetCommand { get; }
         public ICommand TestConnectionCommand { get; }
         public ICommand UploadCredentialsCommand { get; }
 
-
         private async Task UploadCredentials()
         {
             try
             {
+                // Проверка разрешения на чтение хранилища
+                var status = await Permissions.CheckStatusAsync<Permissions.StorageRead>();
+                if (status != PermissionStatus.Granted)
+                {
+                    status = await Permissions.RequestAsync<Permissions.StorageRead>();
+                }
+
+                if (status != PermissionStatus.Granted)
+                {
+                    await Application.Current.MainPage.DisplayAlert(
+                        "Нет доступа",
+                        "Приложению необходимо разрешение на чтение файлов. Проверьте настройки.",
+                        "OK");
+                    return;
+                }
+
                 var fileResult = await FilePicker.PickAsync(new PickOptions
                 {
                     PickerTitle = "Выберите credentials.json",
-                    FileTypes = new FilePickerFileType(
-                        new Dictionary<DevicePlatform, IEnumerable<string>>
-                        {
-                    { DevicePlatform.Android, new[] { "application/json" } },
-                    { DevicePlatform.iOS, new[] { "public.json" } },
-                    { DevicePlatform.UWP, new[] { ".json" } },
-                    { DevicePlatform.macOS, new[] { "json" } },
-                        })
                 });
 
-                if (fileResult == null) return;
+                if (fileResult == null)
+                {
+                    return;
+                }
 
                 if (!fileResult.FileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
                 {
@@ -96,51 +137,48 @@ namespace MyApp.ViewModels
                 }
 
                 IsBusy = true;
-
                 string json;
+
                 using (var stream = await fileResult.OpenReadAsync())
                 using (var reader = new StreamReader(stream))
                 {
                     json = await reader.ReadToEndAsync();
                 }
 
-                // Временное сохранение для проверки
-                var tempSuccess = await _googleService.UploadNewCredentials(json);
-                if (!tempSuccess)
+                if (!await _googleService.UploadNewCredentials(json))
                 {
                     await Application.Current.MainPage.DisplayAlert(
                         "Ошибка", "Неверный формат файла credentials.json", "OK");
                     return;
                 }
 
-                // Проверка подключения с новыми credentials
                 var testUrl = Preferences.Get("SpreadsheetId", null);
-                if (!string.IsNullOrEmpty(testUrl))
+                if (!string.IsNullOrEmpty(testUrl) &&
+                    !await _googleService.TestConnectionAsync())
                 {
-                    var isConnected = await _googleService.TestConnectionAsync();
-                    if (!isConnected)
-                    {
-                        await Application.Current.MainPage.DisplayAlert(
-                            "Ошибка",
-                            "Не удалось установить подключение к Google Sheets с этими credentials",
-                            "OK");
-                        return;
-                    }
+                    await Application.Current.MainPage.DisplayAlert(
+                        "Ошибка", "Не удалось установить подключение", "OK");
+                    return;
                 }
 
-                // Если проверка прошла успешно - сохраняем окончательно
-                var finalSuccess = await _googleService.UploadNewCredentials(json, true);
-                if (finalSuccess)
+                if (await _googleService.UploadNewCredentials(json, true))
                 {
                     CurrentServiceAccount = _googleService.CurrentServiceAccount;
                     await Application.Current.MainPage.DisplayAlert(
-                        "Успех", "Файл credentials.json успешно загружен и проверен", "OK");
+                        "Успех", "Файл успешно загружен и проверен", "OK");
                 }
                 else
                 {
                     await Application.Current.MainPage.DisplayAlert(
                         "Ошибка", "Не удалось сохранить credentials", "OK");
                 }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                await Application.Current.MainPage.DisplayAlert(
+                    "Требуется разрешение",
+                    "Разрешите доступ к хранилищу в настройках приложения",
+                    "OK");
             }
             catch (Exception ex)
             {
@@ -152,8 +190,6 @@ namespace MyApp.ViewModels
                 IsBusy = false;
             }
         }
-
-
 
         private async Task OnSave()
         {
@@ -244,6 +280,48 @@ namespace MyApp.ViewModels
             {
                 await Application.Current.MainPage.DisplayAlert("Ошибка",
                     $"Ошибка при проверке подключения: {ex.Message}", "OK");
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+        public async Task CheckConnectionStatusAsync()
+        {
+            if (CurrentServiceAccount == "Не настроен" || 
+                CurrentServiceAccount == "Ошибка загрузки")
+            {
+                ConnectionStatusText = "Не назначен сервисный аккаунт";
+                ConnectionStatusColor = Color.Gray;
+                IsConnectionStatusVisible = true;
+                return;
+            }
+
+            try
+            {
+                IsBusy = true;
+
+                var spreadsheetId = ExtractSpreadsheetIdFromUrl(SpreadsheetUrl);
+                var isConnected = await _googleService.TestConnectionAsync(spreadsheetId);
+
+                if (isConnected)
+                {
+                    ConnectionStatusText = "Подключение установлено";
+                    ConnectionStatusColor = Color.Green;
+                }
+                else
+                {
+                    ConnectionStatusText = "Не удалось подключиться";
+                    ConnectionStatusColor = Color.Red;
+                }
+
+                IsConnectionStatusVisible = true;
+            }
+            catch (Exception ex)
+            {
+                ConnectionStatusText = $"Ошибка: {ex.Message}";
+                ConnectionStatusColor = Color.Red;
+                IsConnectionStatusVisible = true;
             }
             finally
             {

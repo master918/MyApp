@@ -18,5 +18,24 @@ namespace MyApp.Views
 			InitializeComponent ();
 			BindingContext = new SettingsViewModel();
 		}
-	}
+
+        private async void OnSpreadsheetUrlUnfocused(object sender, FocusEventArgs e)
+        {
+            if (BindingContext is SettingsViewModel vm)
+            {
+                await vm.CheckConnectionStatusAsync();
+            }
+        }
+
+        protected override async void OnAppearing()
+        {
+            base.OnAppearing();
+
+            if (BindingContext is SettingsViewModel vm)
+            {
+                await vm.CheckConnectionStatusAsync();
+            }
+        }
+    }
+
 }

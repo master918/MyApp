@@ -29,7 +29,7 @@ namespace MyApp.Services
             public string auth_provider_x509_cert_url { get; set; }
             public string client_x509_cert_url { get; set; }
         }
-        private string _temporaryCredentials;
+
         private const string DefaultRange = "Authorization!A:C";
         private const string CredentialsFileName = "credentials.json";
         private const string CredentialsKey = "GoogleServiceCredentials";
@@ -96,10 +96,6 @@ namespace MyApp.Services
 
         private string GetCredentialsJson()
         {
-            // Сначала проверяем временные credentials (для проверки)
-            if (!string.IsNullOrEmpty(_temporaryCredentials))
-                return _temporaryCredentials;
-
             // Затем проверяем сохраненные в SecureStorage
             var secureStorageTask = SecureStorage.GetAsync(CredentialsKey);
             secureStorageTask.Wait(); // Блокируем, так как в конструкторе нельзя async
