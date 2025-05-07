@@ -1,32 +1,26 @@
 ﻿using System;
+using Xamarin.Essentials;
 using Xamarin.Forms;
-using Xamarin.Forms.Xaml;
 using MyApp.Services;
 using MyApp.Views;
-using Xamarin.Essentials;
-using MyApp.Models;
-using System.Collections.ObjectModel;
-using System.Threading.Tasks;
 
 namespace MyApp
 {
     public partial class App : Application
     {
         private const string CredentialsKey = "GoogleServiceCredentials";
+
         public App()
         {
             InitializeComponent();
-            // Инициализация начальных настроек
             InitializeDefaultSettings();
-            // Устанавливаем начальную страницу
-            MainPage = new AppShell();
-            Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
-            Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
+
+            // Устанавливаем стартовую страницу
+            SetMainPage();
         }
 
         private void InitializeDefaultSettings()
         {
-            // Устанавливаем флаг первого запуска
             if (!Preferences.ContainsKey("FirstRun"))
             {
                 Preferences.Set("FirstRun", false);
@@ -37,22 +31,25 @@ namespace MyApp
             }
         }
 
-        protected override async void OnStart()
+        private void SetMainPage()
         {
-            if (Shell.Current == null) return;
+            bool isSettingsOk = !IsSettingsRequired();
+            bool isLoggedIn = Preferences.Get("IsLoggedIn", false);
 
-            // Проверяем необходимость перенаправления в настройки
-            if (IsSettingsRequired())
+            if (!isSettingsOk)
             {
-                await Shell.Current.GoToAsync($"//{nameof(SettingsPage)}");
+                // Перенаправляем в настройки — напрямую
+                MainPage = new NavigationPage(new SettingsPage());
             }
-            else if (Preferences.Get("IsLoggedIn", false))
+            else if (!isLoggedIn)
             {
-                await Shell.Current.GoToAsync($"//{nameof(AboutPage)}");
+                // Пользователь не вошел — показываем LoginPage напрямую
+                MainPage = new NavigationPage(new LoginPage());
             }
             else
             {
-                await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
+                // Все в порядке — запускаем AppShell
+                MainPage = new AppShell();
             }
         }
 
@@ -60,12 +57,13 @@ namespace MyApp
         {
             var hasCredentials = SecureStorage.GetAsync(CredentialsKey).Result != null;
             var hasSpreadsheetId = !string.IsNullOrEmpty(Preferences.Get("SpreadsheetId", null));
-
             return !hasCredentials || !hasSpreadsheetId;
         }
 
+        protected override void OnStart() { }
+
         protected override void OnSleep() { }
 
-        protected override void OnResume() { }        
+        protected override void OnResume() { }
     }
 }

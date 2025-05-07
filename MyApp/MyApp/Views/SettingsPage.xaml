@@ -4,11 +4,24 @@
              x:Class="MyApp.Views.SettingsPage"
              Title="Настройки Google Sheets"
              xmlns:ios="clr-namespace:Xamarin.Forms.PlatformConfiguration.iOSSpecific;assembly=Xamarin.Forms.Core"
-             ios:Page.UseSafeArea="true">
+             ios:Page.UseSafeArea="true"
+             xmlns:converters="clr-namespace:MyApp.Converters">
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:ConnectionStatusToColorConverter x:Key="ConnectionStatusToColor"/>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
     <ContentPage.Content>
         <ScrollView>
             <StackLayout Spacing="15" Padding="20">
-                <!-- Секция текущего сервисного аккаунта -->
+                <!-- ActivityIndicator для отображения загрузки -->
+                <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                  IsVisible="{Binding IsBusy}"
+                                  Color="{StaticResource Primary}"
+                                  HorizontalOptions="Center"/>
+
+                <!-- Остальное содержимое страницы -->
                 <Label Text="Текущий сервисный аккаунт" 
                        FontSize="Medium"
                        FontAttributes="Bold"
@@ -18,29 +31,32 @@
                        FontSize="Small"
                        TextColor="Gray"/>
 
-                <!-- Кнопка загрузки нового JSON -->
                 <Button Text="Загрузить новый credentials.json" 
                         Command="{Binding UploadCredentialsCommand}"
-                        HorizontalOptions="FillAndExpand"
-                        Margin="0,0,0,0"/>
+                        HorizontalOptions="FillAndExpand"/>
 
-                <!-- Разделитель -->
                 <BoxView HeightRequest="1" 
-                         BackgroundColor="LightGray" 
-                         Margin="0,0"/>
+                         BackgroundColor="LightGray"/>
 
-                <!-- Секция настройки таблицы -->
                 <Label Text="Ссылка на Google Sheets документ" 
                        FontSize="Medium"
                        FontAttributes="Bold"
                        TextColor="Black"/>
 
-                <Editor Text="{Binding SpreadsheetUrl}" 
-                        FontSize="Medium"
-                        Placeholder="https://..."
-                        PlaceholderColor="Gray"
-                        AutoSize="TextChanges"
-                        TextColor="Black"/>
+                <Grid>
+                    <Editor Text="{Binding SpreadsheetUrl}" 
+                            FontSize="Medium"
+                            Placeholder="https://..."
+                            PlaceholderColor="Gray"
+                            AutoSize="TextChanges"
+                            TextColor="Black"
+                            Completed="Editor_Completed"/>
+                </Grid>
+
+                <Label Text="{Binding ConnectionStatus}"
+                       FontSize="Small"
+                       TextColor="{Binding ConnectionValid, 
+                                   Converter={StaticResource ConnectionStatusToColor}}"/>
 
                 <Label Text="Документ должен быть доступен для редактирования через сервисный аккаунт"
                        FontSize="Small"
@@ -48,29 +64,15 @@
 
                 <Button Text="Открыть документ" 
                         Command="{Binding OpenSpreadsheetCommand}"
-                        HorizontalOptions="FillAndExpand"
-                        Margin="0,10,0,0"/>
+                        HorizontalOptions="FillAndExpand"/>
 
-                <Button Text="Проверить подключение" 
-                        Command="{Binding TestConnectionCommand}"
-                        HorizontalOptions="FillAndExpand"
-                        BackgroundColor="{StaticResource Primary}"
-                        TextColor="White"
-                        Margin="0,0,0,0"/>
-
-                <ActivityIndicator IsRunning="{Binding IsBusy}"
-                                  IsVisible="{Binding IsBusy}"
-                                  Color="{StaticResource Primary}"
-                                  HorizontalOptions="Center"
-                                  VerticalOptions="Center"/>
-
-                <StackLayout Orientation="Horizontal" Spacing="10" Margin="0,0,0,0">
+                <StackLayout Orientation="Horizontal" Spacing="10">
                     <Button Text="Отмена" 
                             Command="{Binding CancelCommand}" 
-                            HorizontalOptions="FillAndExpand" />
+                            HorizontalOptions="FillAndExpand"/>
                     <Button Text="Сохранить" 
                             Command="{Binding SaveCommand}" 
-                            HorizontalOptions="FillAndExpand" />
+                            HorizontalOptions="FillAndExpand"/>
                 </StackLayout>
             </StackLayout>
         </ScrollView>
