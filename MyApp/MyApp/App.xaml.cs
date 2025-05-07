@@ -3,6 +3,10 @@ using Xamarin.Essentials;
 using Xamarin.Forms;
 using MyApp.Services;
 using MyApp.Views;
+using Xamarin.Essentials;
+using MyApp.Models;
+using System.Threading.Tasks;
+using System.Threading.Tasks;
 
 namespace MyApp
 {
@@ -35,35 +39,61 @@ namespace MyApp
         {
             bool isSettingsOk = !IsSettingsRequired();
             bool isLoggedIn = Preferences.Get("IsLoggedIn", false);
+            // Проверяем состояние и выполняем переходы в нужное место
+            await CheckAndNavigateAsync();
+        }
 
-            if (!isSettingsOk)
+        protected override void OnResume()
+        {
+            base.OnResume();
+            // Проверяем состояние при возобновлении приложения
+            if (Shell.Current != null)
             {
-                // Перенаправляем в настройки — напрямую
-                MainPage = new NavigationPage(new SettingsPage());
+                CheckAndNavigateAsync();
+                await Shell.Current.GoToAsync($"//{nameof(SettingsPage)}");
+        }
+
+        private async Task CheckAndNavigateAsync()
+        {
+            // Ожидаем результата выполнения IsSettingsRequiredAsync()
+            if (await IsSettingsRequiredAsync())
+            {
+                await Shell.Current.GoToAsync("//SettingsPage");
             }
-            else if (!isLoggedIn)
-            {
-                // Пользователь не вошел — показываем LoginPage напрямую
-                MainPage = new NavigationPage(new LoginPage());
+            else if (Preferences.Get("IsLoggedIn", false))
+            else if (Preferences.Get("IsLoggedIn", false))
+                // Если пользователь авторизован, переходим на страницу AboutPage
+                await Shell.Current.GoToAsync("//AboutPage");
+                await Shell.Current.GoToAsync($"//{nameof(AboutPage)}");
             }
             else
-            {
-                // Все в порядке — запускаем AppShell
-                MainPage = new AppShell();
+                // Если не авторизован, показываем страницу входа (LoginPage)
+                await Shell.Current.GoToAsync("//LoginPage");
+                await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
             }
         }
-
-        private bool IsSettingsRequired()
+        private async Task<bool> IsSettingsRequiredAsync()
         {
-            var hasCredentials = SecureStorage.GetAsync(CredentialsKey).Result != null;
-            var hasSpreadsheetId = !string.IsNullOrEmpty(Preferences.Get("SpreadsheetId", null));
-            return !hasCredentials || !hasSpreadsheetId;
+            try
+            {
+                // Проверяем наличие сохраненных учетных данных и идентификатора таблицы
+                var hasCredentials = await SecureStorage.GetAsync(CredentialsKey) != null;
+                var hasSpreadsheetId = !string.IsNullOrEmpty(Preferences.Get("SpreadsheetId", null));
+                return !hasCredentials || !hasSpreadsheetId;
+            }
+            catch (Exception ex)
+            {
+                // В случае ошибки доступа к SecureStorage — считаем, что настройки требуются
+                System.Diagnostics.Debug.WriteLine($"SecureStorage error: {ex.Message}");
+                return true;
+            }
         }
-
-        protected override void OnStart() { }
-
-        protected override void OnSleep() { }
-
-        protected override void OnResume() { }
+        }
+        protected override void OnSleep()
+        {
+            base.OnSleep();
+            // Можно добавить логику для сохранения состояния или выполнения других операций при уходе в фон
+        }
+        protected override void OnResume() { }        
     }
 }

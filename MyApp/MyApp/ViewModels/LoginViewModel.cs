@@ -60,6 +60,7 @@ namespace MyApp.ViewModels
                 LogPasses.Clear();
                 var sheetData = await _googleService.GetSheetDataAsync();
 
+
                 foreach (var row in sheetData)
                 {
                     LogPasses.Add(new LogPass
@@ -69,6 +70,7 @@ namespace MyApp.ViewModels
                         Password = (row.Count > 2) ? row[2]?.ToString() ?? null : null,
                     });
                 }
+                LogPasses.Remove(LogPasses[0]);
             }
             catch (Exception ex)
             {
