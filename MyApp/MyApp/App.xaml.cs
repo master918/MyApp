@@ -46,11 +46,10 @@ namespace MyApp
         protected override void OnResume()
         {
             base.OnResume();
-            // Проверяем состояние при возобновлении приложения
             if (Shell.Current != null)
             {
-                CheckAndNavigateAsync();
-                await Shell.Current.GoToAsync($"//{nameof(SettingsPage)}");
+                _ = CheckAndNavigateAsync(); // Подавляем предупреждение намеренно
+            }
         }
 
         private async Task CheckAndNavigateAsync()
@@ -92,7 +91,6 @@ namespace MyApp
         protected override void OnSleep()
         {
             base.OnSleep();
-            // Можно добавить логику для сохранения состояния или выполнения других операций при уходе в фон
         }
         protected override void OnResume() { }        
     }

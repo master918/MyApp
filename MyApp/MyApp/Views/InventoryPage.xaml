@@ -1,0 +1,51 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:MyApp.ViewModels"
+             xmlns:converters="clr-namespace:MyApp.Converters"
+             x:Class="MyApp.Views.InventoryPage"
+             Title="Инвентаризация">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:InverseBooleanConverter x:Key="InverseBoolConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <ScrollView>
+        <StackLayout Padding="20">
+
+            <Picker Title="Помещения"
+                    ItemsSource="{Binding SheetNames}"
+                    SelectedItem="{Binding SelectedSheet}" 
+                     IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBooleanConverter}}"/>
+
+            <!-- Индикатор загрузки -->
+            <ActivityIndicator 
+            IsRunning="{Binding IsLoading}" 
+            IsVisible="{Binding IsLoading}" 
+            HorizontalOptions="Center"
+            VerticalOptions="Center"
+            HeightRequest="50"
+            WidthRequest="50"
+            Color="Gray"
+            Margin="0,10"/>
+
+            <StackLayout BindableLayout.ItemsSource="{Binding InventoryFields}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate>
+                        <StackLayout Margin="0,5">
+                            <Label Text="{Binding Label}" />
+                            <Entry Text="{Binding Value}" Placeholder="Введите значение" />
+                        </StackLayout>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </StackLayout>
+
+            <Button Text="Сохранить"
+                    Margin="0,20,0,0"
+                    Command="{Binding SaveCommand}"
+                    IsVisible="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}" />
+        </StackLayout>
+    </ScrollView>
+</ContentPage>
