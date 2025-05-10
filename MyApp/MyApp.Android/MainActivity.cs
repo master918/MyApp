@@ -4,6 +4,7 @@ using Android.App;
 using Android.Content.PM;
 using Android.Runtime;
 using Android.OS;
+using ZXing.Mobile;
 
 namespace MyApp.Droid
 {
@@ -16,10 +17,9 @@ namespace MyApp.Droid
 
             Xamarin.Essentials.Platform.Init(this, savedInstanceState);
             global::Xamarin.Forms.Forms.Init(this, savedInstanceState);
-
+            MobileBarcodeScanner.Initialize(Application);
+            Xamarin.Essentials.Platform.Init(Application);
             ZXing.Net.Mobile.Forms.Android.Platform.Init();
-            ZXing.Mobile.MobileBarcodeScanner.Initialize(Application);
-
             LoadApplication(new App());
 
         }

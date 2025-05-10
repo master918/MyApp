@@ -121,7 +121,7 @@ namespace MyApp.Services
             }
         }
 
-        private string GetCredentialsJson()
+        public string GetCredentialsJson()
         {
             // Затем проверяем сохраненные в SecureStorage
             var secureStorageTask = SecureStorage.GetAsync(CredentialsKey);

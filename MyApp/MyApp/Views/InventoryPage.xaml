@@ -1,8 +1,8 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+﻿<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MyApp.ViewModels"
              xmlns:converters="clr-namespace:MyApp.Converters"
+             xmlns:zxing="clr-namespace:ZXing.Net.Mobile.Forms;assembly=ZXing.Net.Mobile.Forms"
              x:Class="MyApp.Views.InventoryPage"
              Title="Инвентаризация">
 
@@ -12,40 +12,60 @@
         </ResourceDictionary>
     </ContentPage.Resources>
 
-    <ScrollView>
-        <StackLayout Padding="20">
+    <AbsoluteLayout>
+        <!-- Основной интерфейс формы -->
+        <ScrollView x:Name="MainContent"
+                    AbsoluteLayout.LayoutBounds="0,0,1,1"
+                    AbsoluteLayout.LayoutFlags="All">
+            <StackLayout Padding="20">
+                <Picker Title="Помещения"
+                        ItemsSource="{Binding SheetNames}"
+                        SelectedItem="{Binding SelectedSheet}" 
+                        IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}" />
 
-            <Picker Title="Помещения"
-                    ItemsSource="{Binding SheetNames}"
-                    SelectedItem="{Binding SelectedSheet}" 
-                     IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBooleanConverter}}"/>
+                <!-- Индикатор загрузки -->
+                <ActivityIndicator 
+                    IsRunning="{Binding IsLoading}" 
+                    IsVisible="{Binding IsLoading}" 
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center"
+                    HeightRequest="50"
+                    WidthRequest="50"
+                    Color="Gray"
+                    Margin="0,10"/>
 
-            <!-- Индикатор загрузки -->
-            <ActivityIndicator 
-            IsRunning="{Binding IsLoading}" 
-            IsVisible="{Binding IsLoading}" 
-            HorizontalOptions="Center"
-            VerticalOptions="Center"
-            HeightRequest="50"
-            WidthRequest="50"
-            Color="Gray"
-            Margin="0,10"/>
+                <!-- Поля формы -->
+                <StackLayout BindableLayout.ItemsSource="{Binding InventoryFields}"
+                             IsVisible="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <StackLayout Margin="0,5">
+                                <Label Text="{Binding Label}" />
+                                <Entry Text="{Binding Value}" Placeholder="Введите значение" />
+                            </StackLayout>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </StackLayout>
 
-            <StackLayout BindableLayout.ItemsSource="{Binding InventoryFields}">
-                <BindableLayout.ItemTemplate>
-                    <DataTemplate>
-                        <StackLayout Margin="0,5">
-                            <Label Text="{Binding Label}" />
-                            <Entry Text="{Binding Value}" Placeholder="Введите значение" />
-                        </StackLayout>
-                    </DataTemplate>
-                </BindableLayout.ItemTemplate>
+                <!-- Кнопки для сканирования и далее -->
+                <StackLayout Orientation="Horizontal" Spacing="10">
+                    <Button Text="Сканировать" Command="{Binding ScanQRCommand}" HorizontalOptions="FillAndExpand"/>
+                    <Button Text="Далее" Command="{Binding NextItemCommand}" HorizontalOptions="FillAndExpand"/>
+                </StackLayout>
+
+                <!-- Кнопка завершить -->
+                <Button Text="Завершить" Command="{Binding FinishCommand}" />
             </StackLayout>
+        </ScrollView>
 
-            <Button Text="Сохранить"
-                    Margin="0,20,0,0"
-                    Command="{Binding SaveCommand}"
-                    IsVisible="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}" />
-        </StackLayout>
-    </ScrollView>
+        <!-- Сканер QR-кодов поверх интерфейса -->
+        <zxing:ZXingScannerView x:Name="scannerView"
+                                IsScanning="False"
+                                IsVisible="False"
+                                OnScanResult="Handle_OnScanResult"
+                                AutomationId="zxingScannerView"
+                                AbsoluteLayout.LayoutBounds="0,0,1,1"
+                                AbsoluteLayout.LayoutFlags="All" />
+
+    </AbsoluteLayout>
 </ContentPage>

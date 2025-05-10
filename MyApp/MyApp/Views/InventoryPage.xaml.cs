@@ -1,39 +1,69 @@
 ﻿using MyApp.ViewModels;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using ZXing.Mobile;
 
 namespace MyApp.Views
 {
-	[XamlCompilation(XamlCompilationOptions.Compile)]
-	public partial class InventoryPage : ContentPage
-	{
-		public InventoryPage ()
-		{
-			InitializeComponent ();
-			BindingContext = new InventoryViewModel();
-		}
-        protected override void OnAppearing()
+    [XamlCompilation(XamlCompilationOptions.Compile)]
+    public partial class InventoryPage : ContentPage
+    {
+        public InventoryPage()
+        {
+            InitializeComponent();
+            BindingContext = new InventoryViewModel();
+        }
+
+        protected override async void OnAppearing()
         {
             base.OnAppearing();
 
-            BindingContext = new InventoryViewModel();
-            if (BindingContext is InventoryViewModel vm)
+            var vm = BindingContext as InventoryViewModel;
+            if (vm != null)
             {
+                // Загружаем данные после загрузки страницы
                 if (vm.LoadSheetNamesCommand.CanExecute(null))
                     vm.LoadSheetNamesCommand.Execute(null);
 
+                // Инкрементируем задержку, чтобы все успело загрузиться
                 Device.BeginInvokeOnMainThread(async () =>
                 {
                     await Task.Delay(200);
                 });
             }
+
+            MessagingCenter.Subscribe<InventoryViewModel>(this, "StartScanner", (sender) =>
+            {
+                StartScanner();
+            });
         }
 
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            MessagingCenter.Unsubscribe<InventoryViewModel>(this, "StartScanner");
+        }
+
+        private void Handle_OnScanResult(ZXing.Result result)
+        {
+            Device.BeginInvokeOnMainThread(async () =>
+            {
+                scannerView.IsScanning = false;
+                scannerView.IsVisible = false;
+
+                if (!string.IsNullOrWhiteSpace(result.Text))
+                {
+                    var vm = BindingContext as InventoryViewModel;
+                    await vm?.HandleScannedText(result.Text);
+                }
+            });
+        }
+
+        private void StartScanner()
+        {
+            scannerView.IsVisible = true;
+            scannerView.IsScanning = true;
+        }
     }
 }
