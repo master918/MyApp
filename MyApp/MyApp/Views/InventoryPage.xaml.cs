@@ -1,4 +1,5 @@
 ﻿using MyApp.ViewModels;
+using System.Linq;
 using System.Threading.Tasks;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
@@ -65,5 +66,6 @@ namespace MyApp.Views
             scannerView.IsVisible = true;
             scannerView.IsScanning = true;
         }
+
     }
 }

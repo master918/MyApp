@@ -3,14 +3,24 @@
              xmlns:vm="clr-namespace:MyApp.ViewModels"
              xmlns:converters="clr-namespace:MyApp.Converters"
              xmlns:zxing="clr-namespace:ZXing.Net.Mobile.Forms;assembly=ZXing.Net.Mobile.Forms"
+             
              x:Class="MyApp.Views.InventoryPage"
              Title="Инвентаризация">
-
+    
     <ContentPage.Resources>
         <ResourceDictionary>
             <converters:InverseBooleanConverter x:Key="InverseBoolConverter" />
         </ResourceDictionary>
     </ContentPage.Resources>
+
+    <!-- Кнопка в правом верхнем углу -->
+    <ContentPage.ToolbarItems>
+        <ToolbarItem IconImageSource="qr_icon.png"
+                     Command="{Binding ScanQRCommand}"
+                     Priority="0"
+                     Order="Primary"
+                     Text="Сканировать"/>
+    </ContentPage.ToolbarItems>
 
     <AbsoluteLayout>
         <!-- Основной интерфейс формы -->
@@ -39,17 +49,27 @@
                              IsVisible="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
-                            <StackLayout Margin="0,5">
-                                <Label Text="{Binding Label}" />
-                                <Entry Text="{Binding Value}" Placeholder="Введите значение" />
+                            <StackLayout Margin="0,5">    
+                                
+                                <!-- Picker для выпадающих значений -->
+                                <Picker Title="{Binding Label}"
+                                ItemsSource="{Binding Items}"
+                                SelectedItem="{Binding Value, Mode=TwoWay}"
+                                IsVisible="{Binding IsDropdown}" />
+
+                               <!-- Обычный Entry для других полей -->
+                               <Entry Text="{Binding Value}"
+                               Placeholder="{Binding Label}"
+                               IsVisible="{Binding IsDropdown, Converter={StaticResource InverseBoolConverter}}" />
                             </StackLayout>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
+
                 </StackLayout>
 
                 <!-- Кнопки для сканирования и далее -->
                 <StackLayout Orientation="Horizontal" Spacing="10">
-                    <Button Text="Сканировать" Command="{Binding ScanQRCommand}" HorizontalOptions="FillAndExpand"/>
+                    <Button Text="К заполнению" Command="{Binding OpenCompletedFormsCommand}" HorizontalOptions="FillAndExpand"/>
                     <Button Text="Далее" Command="{Binding NextItemCommand}" HorizontalOptions="FillAndExpand"/>
                 </StackLayout>
 

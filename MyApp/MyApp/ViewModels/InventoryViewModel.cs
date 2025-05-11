@@ -18,12 +18,21 @@ namespace MyApp.ViewModels
         private string _selectedSheet;
 
         public Command NextItemCommand { get; }
+        public Command OpenCompletedFormsCommand { get; }
         public Command FinishCommand { get; }
         public Command ScanQRCommand { get; }
-        private List<List<InventoryField>> _completedForms = new List<List<InventoryField>>();
+
+        private int _currentFormNumber = 1;
+        public int CurrentFormNumber
+        {
+            get => _currentFormNumber;
+            set => SetProperty(ref _currentFormNumber, value);
+        }
 
         public ObservableCollection<string> SheetNames { get; } = new ObservableCollection<string>();//Названия помщений
         public ObservableCollection<InventoryField> InventoryFields { get; } = new ObservableCollection<InventoryField>();//Поля форм
+        public ObservableCollection<CompletedForm> CompletedForms { get; } = new ObservableCollection<CompletedForm>();
+        public ObservableCollection<string> ItemNames { get; } = new ObservableCollection<string>();
 
         public string SelectedSheet
         {
@@ -51,6 +60,7 @@ namespace MyApp.ViewModels
             NextItemCommand = new Command(NextItem);
             FinishCommand = new Command(async () => await FinishAsync());
             ScanQRCommand = new Command(async () => MessagingCenter.Send(this, "StartScanner"));
+            OpenCompletedFormsCommand = new Command(OpenCompletedForms);
         }
 
         public Command LoadSheetNamesCommand { get; }
@@ -63,15 +73,24 @@ namespace MyApp.ViewModels
 
                 var sheetTitles = await _googleService.GetSheetTitlesAsync();
 
+                var inventorySheets = sheetTitles
+                                        .Where(t => !string.Equals(t, "Authorization", StringComparison.OrdinalIgnoreCase))
+                                        .ToList();
+
                 SheetNames.Clear();
-                foreach (var title in sheetTitles.Where(t => !string.Equals(t, "Authorization", StringComparison.OrdinalIgnoreCase)))
+                foreach (var title in inventorySheets)
                 {
                     SheetNames.Add(title);
                 }
 
-                if (SheetNames.Count > 0)
+                // Принудительно устанавливаем первый доступный лист
+                if (inventorySheets.Any())
                 {
-                    SelectedSheet = SheetNames[0];
+                    SelectedSheet = inventorySheets[0];
+                }
+                else
+                {
+                    await Application.Current.MainPage.DisplayAlert("Ошибка", "Не найдены листы для инвентаризации", "OK");
                 }
             }
             catch (Exception ex)
@@ -89,15 +108,17 @@ namespace MyApp.ViewModels
                 var currentSpreadsheetId = Preferences.Get("SpreadsheetId", null);
                 var sheetName = SelectedSheet;
 
-                var range = $"{sheetName}!A1:Z2"; // Читаем 1 и 2 строку
+                var range = $"{sheetName}!A1:Z2"; // Считываем строки с метками и заголовками
                 var serviceData = await service.GetRangeValuesAsync(currentSpreadsheetId, range);
 
                 InventoryFields.Clear();
 
                 if (serviceData.Count >= 2)
                 {
-                    var firstRow = serviceData[0]; // Флаги включения (!)
-                    var secondRow = serviceData[1]; // Названия полей
+                    var firstRow = serviceData[0]; // строки с "!" — пропускаемые поля
+                    var secondRow = serviceData[1]; // заголовки полей
+
+                    int nameFieldIndex = -1;
 
                     for (int i = 0; i < secondRow.Count; i++)
                     {
@@ -106,7 +127,35 @@ namespace MyApp.ViewModels
 
                         if (!skip && !string.IsNullOrWhiteSpace(title))
                         {
-                            InventoryFields.Add(new InventoryField { Label = title });
+                            var field = new InventoryField { Label = title };
+
+                            // Определим, является ли это поле "Наименование"
+                            if (field.IsNameField)
+                            {
+                                nameFieldIndex = i;
+                            }
+
+                            InventoryFields.Add(field);
+                        }
+                    }
+
+                    // Загружаем значения для поля "Наименование", если индекс найден
+                    if (nameFieldIndex >= 0)
+                    {
+                        var nameRange = $"{sheetName}!{(char)('A' + nameFieldIndex)}3:{(char)('A' + nameFieldIndex)}";
+                        var nameValues = await service.GetRangeValuesAsync(currentSpreadsheetId, nameRange);
+
+                        var nameField = InventoryFields.FirstOrDefault(f => f.IsNameField);
+                        if (nameField != null)
+                        {
+                            nameField.Items.Clear();
+                            nameField.Items.Add("<Создать>");
+
+                            foreach (var row in nameValues)
+                            {
+                                if (row.Count > 0 && !string.IsNullOrWhiteSpace(row[0]?.ToString()))
+                                    nameField.Items.Add(row[0].ToString());
+                            }
                         }
                     }
                 }
@@ -121,77 +170,6 @@ namespace MyApp.ViewModels
             }
         }
 
-        // Метод для сканирования QR кода
-        private async Task ScanQrCode()
-        {
-            try
-            {
-                // Проверяем разрешение на камеру
-                var cameraStatus = await Permissions.CheckStatusAsync<Permissions.Camera>();
-                if (cameraStatus != PermissionStatus.Granted)
-                {
-                    cameraStatus = await Permissions.RequestAsync<Permissions.Camera>();
-                    if (cameraStatus != PermissionStatus.Granted)
-                    {
-                        await Application.Current.MainPage.DisplayAlert("Ошибка",
-                            "Для сканирования QR-кодов необходимо разрешение на использование камеры", "OK");
-                        return;
-                    }
-                }
-
-                // Используем текущую страницу как контекст, чтобы избежать навигации
-                var scanner = new ZXing.Mobile.MobileBarcodeScanningOptions
-                {
-                    AutoRotate = true,
-                    UseFrontCameraIfAvailable = false,
-                    PossibleFormats = new List<ZXing.BarcodeFormat> { ZXing.BarcodeFormat.QR_CODE }
-                };
-
-                var page = new ZXing.Net.Mobile.Forms.ZXingScannerPage(scanner)
-                {
-                    Title = "Сканирование QR-кода"
-                };
-
-                // Переход на сканер внутри текущей навигации без закрытия страницы InventoryPage
-                await Application.Current.MainPage.Navigation.PushAsync(page);
-
-                page.OnScanResult += (result) =>
-                {
-                    page.IsScanning = false;
-
-                    // Возвращаемся на предыдущую страницу
-                    Device.BeginInvokeOnMainThread(async () =>
-                    {
-                        await Application.Current.MainPage.Navigation.PopAsync();
-
-                        if (result != null && !string.IsNullOrWhiteSpace(result.Text))
-                        {
-                            var qrData = ParseQrData(result.Text);
-                            var name = qrData.TryGetValue("Наименование", out var value) ? value : "";
-
-                            var nameField = InventoryFields.FirstOrDefault(f =>
-                                !string.IsNullOrEmpty(f.Label) &&
-                                f.Label.IndexOf("наименование", StringComparison.OrdinalIgnoreCase) >= 0);
-
-                            if (nameField != null)
-                            {
-                                nameField.Value = name;
-                            }
-                            else
-                            {
-                                await Application.Current.MainPage.DisplayAlert("Предупреждение",
-                                    "Не найдено поле 'Наименование' в форме", "OK");
-                            }
-                        }
-                    });
-                };
-            }
-            catch (Exception ex)
-            {
-                await Application.Current.MainPage.DisplayAlert("Ошибка",
-                    $"Не удалось отсканировать QR-код: {ex.Message}", "OK");
-            }
-        }
         private Dictionary<string, string> ParseQrData(string qrText)
         {
             var data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -212,18 +190,111 @@ namespace MyApp.ViewModels
 
             return data;
         }
-        private void NextItem()
+        public async Task HandleScannedText(string qrText)
         {
-            // Сохраняем текущую форму
-            var snapshot = InventoryFields.Select(f => new InventoryField { Label = f.Label, Value = f.Value }).ToList();
-            _completedForms.Add(snapshot);
+            var qrData = ParseQrData(qrText);
 
-            // Очищаем текущие значения
+            if (qrData.Count == 0)
+            {
+                await Application.Current.MainPage.DisplayAlert("Ошибка", "QR-код не содержит данных", "OK");
+                return;
+            }
+
+            int filledCount = 0;
             foreach (var field in InventoryFields)
             {
-                field.Value = string.Empty;
+                if (!string.IsNullOrWhiteSpace(field.Label))
+                {
+                    foreach (var pair in qrData)
+                    {
+                        // Сравнение с учетом регистра и возможных вариаций
+                        if (field.Label.Trim().Equals(pair.Key.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                            field.Label.Trim().IndexOf(pair.Key.Trim(), StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            field.Value = pair.Value;
+                            filledCount++;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (filledCount == 0)
+            {
+                await Application.Current.MainPage.DisplayAlert("Предупреждение", "Не удалось сопоставить поля QR-кода с формой", "OK");
             }
         }
+
+
+        private async void OpenCompletedForms()
+        {
+            if (CompletedForms.Count == 0)
+            {
+                await Application.Current.MainPage.DisplayAlert("Просмотр", "Нет заполненных форм", "OK");
+                return;
+            }
+
+            var items = CompletedForms.Select(form =>
+            {
+                var nameField = form.Fields.FirstOrDefault(f =>
+                    !string.IsNullOrEmpty(f.Label) &&
+                    f.Label.IndexOf("наименование", StringComparison.OrdinalIgnoreCase) >= 0);
+
+                var name = nameField?.Value ?? "(без наименования)";
+                return $"{form.Index}. {name}";
+            }).ToList();
+
+            string selected = await Application.Current.MainPage.DisplayActionSheet(
+                "Заполненные формы", "Отмена", null, items.ToArray());
+
+            if (!string.IsNullOrWhiteSpace(selected) && selected != "Отмена")
+            {
+                var selectedForm = CompletedForms.FirstOrDefault(f =>
+                {
+                    var label = f.Fields.FirstOrDefault(x =>
+                        !string.IsNullOrEmpty(x.Label) &&
+                        x.Label.IndexOf("наименование", StringComparison.OrdinalIgnoreCase) >= 0);
+
+                    var name = label?.Value ?? "(без наименования)";
+                    return $"{f.Index}. {name}" == selected;
+                });
+
+                if (selectedForm != null)
+                    LoadCompletedForm(selectedForm);
+            }
+        }
+
+        private void NextItem()
+        {
+            var snapshot = InventoryFields.Select(f => new InventoryField
+            {
+                Label = f.Label,
+                Value = f.Value
+            }).ToList();
+
+            var existingForm = CompletedForms.FirstOrDefault(f => f.Index == CurrentFormNumber);
+            if (existingForm != null)
+            {
+                // Обновляем существующую форму
+                existingForm.Fields = snapshot;
+            }
+            else
+            {
+                // Добавляем новую форму
+                CompletedForms.Add(new CompletedForm
+                {
+                    Index = CurrentFormNumber,
+                    Fields = snapshot
+                });
+            }
+
+            // Очистка полей и переход к следующей
+            foreach (var field in InventoryFields)
+                field.Value = string.Empty;
+
+            CurrentFormNumber++;
+        }
+
         private async Task FinishAsync()
         {
             NextItem(); // Сохраняем текущую форму
@@ -235,9 +306,9 @@ namespace MyApp.ViewModels
                 var sheetName = SelectedSheet;
 
                 var values = new List<IList<object>>();
-                foreach (var form in _completedForms)
+                foreach (var form in CompletedForms)
                 {
-                    var row = form.Select(f => (object)(f.Value ?? "")).ToList();
+                    var row = form.Fields.Select(f => (object)(f.Value ?? "")).ToList();
                     values.Add(row);
                 }
 
@@ -264,7 +335,9 @@ namespace MyApp.ViewModels
                 await request.ExecuteAsync();
 
                 await Application.Current.MainPage.DisplayAlert("Успешно", "Все данные отправлены", "ОК");
-                _completedForms.Clear();
+                CompletedForms.Clear();
+                _currentFormNumber = 1;
+                OnPropertyChanged(nameof(CurrentFormNumber));
             }
             catch (Exception ex)
             {
@@ -275,25 +348,19 @@ namespace MyApp.ViewModels
                 IsLoading = false;
             }
         }
-
-        public async Task HandleScannedText(string qrText)
+        public void LoadCompletedForm(CompletedForm form)
         {
-            var qrData = ParseQrData(qrText);
-            var name = qrData.TryGetValue("Наименование", out var value) ? value : "";
-
-            var nameField = InventoryFields.FirstOrDefault(f =>
-                !string.IsNullOrEmpty(f.Label) &&
-                f.Label.IndexOf("наименование", StringComparison.OrdinalIgnoreCase) >= 0);
-
-            if (nameField != null)
+            InventoryFields.Clear();
+            foreach (var field in form.Fields)
             {
-                nameField.Value = name;
+                InventoryFields.Add(new InventoryField
+                {
+                    Label = field.Label,
+                    Value = field.Value
+                });
             }
-            else
-            {
-                await Application.Current.MainPage.DisplayAlert("Предупреждение",
-                    "Не найдено поле 'Наименование' в форме", "OK");
-            }
+
+            CurrentFormNumber = form.Index;
         }
     }
 }
