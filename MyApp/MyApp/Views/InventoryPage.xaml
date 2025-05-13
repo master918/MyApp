@@ -1,8 +1,11 @@
 ﻿<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MyApp.ViewModels"
+             
              xmlns:converters="clr-namespace:MyApp.Converters"
+             
              xmlns:zxing="clr-namespace:ZXing.Net.Mobile.Forms;assembly=ZXing.Net.Mobile.Forms"
+             xmlns:xct="http://xamarin.com/schemas/2020/toolkit"
              
              x:Class="MyApp.Views.InventoryPage"
              Title="Инвентаризация">
@@ -49,23 +52,45 @@
                              IsVisible="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
-                            <StackLayout Margin="0,5">    
-                                
-                                <!-- Picker для выпадающих значений -->
-                                <Picker Title="{Binding Label}"
-                                ItemsSource="{Binding Items}"
-                                SelectedItem="{Binding Value, Mode=TwoWay}"
-                                IsVisible="{Binding IsDropdown}" />
+                            <StackLayout Margin="0,5">
+                                <!-- Если это поле-наименование -->
+                                <StackLayout IsVisible="{Binding IsDropdown}">
+                                    <!-- Entry с автодополнением -->
+                                    <Entry Placeholder="Введите наименование"
+                                           Text="{Binding Value, Mode=TwoWay}"
+                                           TextChanged="OnEntryTextChanged"
+                                           Focused="OnEntryFocused"
+                                           Unfocused="OnEntryUnfocused" />
 
-                               <!-- Обычный Entry для других полей -->
-                               <Entry Text="{Binding Value}"
-                               Placeholder="{Binding Label}"
-                               IsVisible="{Binding IsDropdown, Converter={StaticResource InverseBoolConverter}}" />
+                                    <!-- Список подсказок -->
+                                    <ListView x:Name="dropdownList"
+                                              ItemsSource="{Binding Suggestions}"
+                                              IsVisible="{Binding SuggestionsVisible}"
+                                              HeightRequest="{Binding SuggestionsHeight}"
+                                              BackgroundColor="White"
+                                              Margin="0, -10, 0, 10"
+                                              SelectionMode="Single"
+                                              ItemSelected="ItemSelected">
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate>
+                                                <ViewCell>
+                                                    <Label Text="{Binding .}" Padding="10,5"/>
+                                                </ViewCell>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </StackLayout>
+
+                                <!-- Обычные поля -->
+                                <StackLayout IsVisible="{Binding IsDropdown, Converter={StaticResource InverseBoolConverter}}">
+                                    <Entry Text="{Binding Value}"
+                                           Placeholder="{Binding Label}" />
+                                </StackLayout>
                             </StackLayout>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
-
                 </StackLayout>
+
 
                 <!-- Кнопки для сканирования и далее -->
                 <StackLayout Orientation="Horizontal" Spacing="10">

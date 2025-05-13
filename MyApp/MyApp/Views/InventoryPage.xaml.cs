@@ -1,4 +1,5 @@
-﻿using MyApp.ViewModels;
+﻿using MyApp.Models;
+using MyApp.ViewModels;
 using System.Linq;
 using System.Threading.Tasks;
 using Xamarin.Forms;
@@ -67,5 +68,45 @@ namespace MyApp.Views
             scannerView.IsScanning = true;
         }
 
+        private void OnEntryFocused(object sender, FocusEventArgs e)
+        {
+            if (sender is Entry entry && entry.BindingContext is InventoryField field)
+            {
+                field.FilterSuggestions(entry.Text);
+            }
+        }
+        private void OnEntryTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is Entry entry && entry.BindingContext is InventoryField field)
+            {
+                field.FilterSuggestions(e.NewTextValue);
+            }
+        }
+        private void OnEntryUnfocused(object sender, FocusEventArgs e)
+        {
+            if (sender is Entry entry && entry.BindingContext is InventoryField field)
+            {
+                Device.BeginInvokeOnMainThread(async () =>
+                {
+                    await Task.Delay(200);
+                    field.SuggestionsVisible = false;
+                    field.OnPropertyChanged(nameof(field.SuggestionsVisible));
+                });
+            }
+        }
+
+        void ItemSelected(object sender, SelectedItemChangedEventArgs e)
+        {
+            if (sender is ListView listView &&
+                listView.BindingContext is InventoryField field &&
+                e.SelectedItem is string selectedItem)
+            {
+                field.Value = selectedItem;
+                field.SuggestionsVisible = false;
+
+                // Сбросим выделение
+                listView.SelectedItem = null;
+            }
+        }
     }
 }

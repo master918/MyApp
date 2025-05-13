@@ -149,7 +149,6 @@ namespace MyApp.ViewModels
                         if (nameField != null)
                         {
                             nameField.Items.Clear();
-                            nameField.Items.Add("<Создать>");
 
                             foreach (var row in nameValues)
                             {
