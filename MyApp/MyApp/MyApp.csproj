@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
@@ -8,6 +7,9 @@
 
   <ItemGroup>
     <PackageReference Include="Google.Apis.Sheets.v4" Version="1.69.0.3757" />
+    <PackageReference Include="Microsoft.UI.Xaml" Version="2.8.7" />
+    <PackageReference Include="Xamarin.CommunityToolkit" Version="2.0.6" />
+    <PackageReference Include="Xamarin.CommunityToolkit.Markup" Version="2.0.6" />
     <PackageReference Include="Xamarin.Forms" Version="5.0.0.2662" />  
     <PackageReference Include="Xamarin.Essentials" Version="1.8.1" />  
     <PackageReference Include="ZXing.Net.Mobile" Version="2.4.1" />  
@@ -15,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Update="Views\QR_Page.xaml">
+    <EmbeddedResource Update="Views\InventoryPage.xaml">
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>
     <EmbeddedResource Update="Views\SettingsPage.xaml">

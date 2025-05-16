@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Xamarin.Essentials;
 using Xamarin.Forms;
-using MyApp.Services;
 using MyApp.Views;
 
 namespace MyApp
@@ -14,8 +14,6 @@ namespace MyApp
         {
             InitializeComponent();
             InitializeDefaultSettings();
-
-            // Устанавливаем стартовую страницу
             SetMainPage();
         }
 
@@ -33,37 +31,64 @@ namespace MyApp
 
         private void SetMainPage()
         {
-            bool isSettingsOk = !IsSettingsRequired();
-            bool isLoggedIn = Preferences.Get("IsLoggedIn", false);
+            // Пока не знаем, что нужно показывать — ставим заглушку
+            MainPage = new AppShell();
 
-            if (!isSettingsOk)
-            {
-                // Перенаправляем в настройки — напрямую
-                MainPage = new NavigationPage(new SettingsPage());
-            }
-            else if (!isLoggedIn)
-            {
-                // Пользователь не вошел — показываем LoginPage напрямую
-                MainPage = new NavigationPage(new LoginPage());
-            }
-            else
-            {
-                // Все в порядке — запускаем AppShell
-                MainPage = new AppShell();
-            }
+            // Навигация будет выполнена после полной инициализации
+            Device.BeginInvokeOnMainThread(async () => await CheckAndNavigateAsync());
         }
 
-        private bool IsSettingsRequired()
+        protected override async void OnStart()
         {
-            var hasCredentials = SecureStorage.GetAsync(CredentialsKey).Result != null;
-            var hasSpreadsheetId = !string.IsNullOrEmpty(Preferences.Get("SpreadsheetId", null));
-            return !hasCredentials || !hasSpreadsheetId;
+            await CheckAndNavigateAsync();
         }
 
-        protected override void OnStart() { }
+        protected override async void OnResume()
+        {
+            await CheckAndNavigateAsync();
+        }
 
-        protected override void OnSleep() { }
+        protected override void OnSleep()
+        {
+            // Здесь можно сохранять состояние приложения, если нужно
+        }
 
-        protected override void OnResume() { }
+        private async Task CheckAndNavigateAsync()
+        {
+            try
+            {
+                if (await IsSettingsRequiredAsync())
+                {
+                    await Shell.Current.GoToAsync("//SettingsPage");
+                }
+                else if (Preferences.Get("IsLoggedIn", false))
+                {
+                    await Shell.Current.GoToAsync($"//{nameof(AboutPage)}");
+                }
+                else
+                {
+                    await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Navigation error: {ex.Message}");
+            }
+        }
+
+        private async Task<bool> IsSettingsRequiredAsync()
+        {
+            try
+            {
+                var hasCredentials = await SecureStorage.GetAsync(CredentialsKey) != null;
+                var hasSpreadsheetId = !string.IsNullOrEmpty(Preferences.Get("SpreadsheetId", null));
+                return !hasCredentials || !hasSpreadsheetId;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"SecureStorage error: {ex.Message}");
+                return true;
+            }
+        }
     }
 }

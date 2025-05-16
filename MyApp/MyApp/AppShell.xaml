@@ -70,6 +70,9 @@
     <FlyoutItem Title="About" Icon="icon_about.png">
         <ShellContent Route="AboutPage" ContentTemplate="{DataTemplate local:AboutPage}" />
     </FlyoutItem>
+    <FlyoutItem Title="Инвентаризация" Icon="icon_inventory.png">
+        <ShellContent Route="InventoryPage" ContentTemplate="{DataTemplate local:InventoryPage}" />
+    </FlyoutItem>
     <FlyoutItem Title="Settings" Icon="icon_feed.png">
         <ShellContent Route="SettingsPage" ContentTemplate="{DataTemplate local:SettingsPage}" />
     </FlyoutItem>

@@ -103,21 +103,21 @@ namespace MyApp.ViewModels
         {
             try
             {
-                // Проверка разрешения на чтение хранилища
-                var status = await Permissions.CheckStatusAsync<Permissions.StorageRead>();
-                if (status != PermissionStatus.Granted)
-                {
-                    status = await Permissions.RequestAsync<Permissions.StorageRead>();
-                }
+                //// Проверка разрешения на чтение хранилища
+                //var status = await Permissions.CheckStatusAsync<Permissions.StorageRead>();
+                //if (status != PermissionStatus.Granted)
+                //{
+                //    status = await Permissions.RequestAsync<Permissions.StorageRead>();
+                //}
 
-                if (status != PermissionStatus.Granted)
-                {
-                    await Application.Current.MainPage.DisplayAlert(
-                        "Нет доступа",
-                        "Приложению необходимо разрешение на чтение файлов. Проверьте настройки.",
-                        "OK");
-                    return;
-                }
+                //if (status != PermissionStatus.Granted)
+                //{
+                //    await Application.Current.MainPage.DisplayAlert(
+                //        "Нет доступа",
+                //        "Приложению необходимо разрешение на чтение файлов. Проверьте настройки.",
+                //        "OK");
+                //    return;
+                //}
 
                 var fileResult = await FilePicker.PickAsync(new PickOptions
                 {

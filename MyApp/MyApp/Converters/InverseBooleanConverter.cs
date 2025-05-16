@@ -6,20 +6,15 @@ using Xamarin.Forms;
 
 namespace MyApp.Converters
 {
-    public class ConnectionStatusToColorConverter : IValueConverter
+    public class InverseBooleanConverter : IValueConverter
     {
+        public InverseBooleanConverter() { }
+
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (value is bool status)
-            {
-                return status ? Color.Green : Color.Red;
-            }
-            return Color.Gray;
-        }
+            => !(bool)value;
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
+            => !(bool)value;
     }
 }
+
