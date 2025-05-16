@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MyApp.Views;
+using System;
 using Xamarin.Essentials;
 using Xamarin.Forms;
 
@@ -10,6 +11,7 @@ namespace MyApp
         {
             InitializeComponent();
             UpdateFlyoutBehavior();
+            
         }
 
         private void OnMenuItemClicked(object sender, EventArgs e)
