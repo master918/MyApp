@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Xamarin.Forms;
 using System.Collections.Specialized;
+using System.Threading.Tasks;
 
 namespace MyApp.Models
 {
@@ -144,5 +145,26 @@ namespace MyApp.Models
                 f.Label.IndexOf("наименование", StringComparison.OrdinalIgnoreCase) >= 0);
             return nameField?.Value ?? "(без наименования)";
         }
+    }
+
+    public class InventoryItem
+    {
+        public string Id { get; set; }
+        public string Наименование { get; set; }
+        public string Стеллаж { get; set; }
+        public string Полка { get; set; }
+        public string Место { get; set; }
+        public string Количество_фактич { get; set; }
+        public string Доп_описание { get; set; }
+        public string StorageName { get; set; }
+    }
+
+    public interface IDataStore<T>
+    {
+        Task<bool> AddItemAsync(T item);
+        Task<bool> UpdateItemAsync(T item);
+        Task<bool> DeleteItemAsync(string id);
+        Task<T> GetItemAsync(string id);
+        Task<IEnumerable<T>> GetItemsAsync(bool forceRefresh = false);
     }
 }

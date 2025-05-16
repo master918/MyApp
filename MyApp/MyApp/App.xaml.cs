@@ -1,12 +1,8 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Xamarin.Essentials;
 using Xamarin.Forms;
-using MyApp.Services;
 using MyApp.Views;
-using Xamarin.Essentials;
-using MyApp.Models;
-using System.Threading.Tasks;
-using System.Threading.Tasks;
 
 namespace MyApp
 {
@@ -18,8 +14,6 @@ namespace MyApp
         {
             InitializeComponent();
             InitializeDefaultSettings();
-
-            // Устанавливаем стартовую страницу
             SetMainPage();
         }
 
@@ -37,61 +31,64 @@ namespace MyApp
 
         private void SetMainPage()
         {
-            bool isSettingsOk = !IsSettingsRequired();
-            bool isLoggedIn = Preferences.Get("IsLoggedIn", false);
-            // Проверяем состояние и выполняем переходы в нужное место
+            // Пока не знаем, что нужно показывать — ставим заглушку
+            MainPage = new AppShell();
+
+            // Навигация будет выполнена после полной инициализации
+            Device.BeginInvokeOnMainThread(async () => await CheckAndNavigateAsync());
+        }
+
+        protected override async void OnStart()
+        {
             await CheckAndNavigateAsync();
         }
 
-        protected override void OnResume()
+        protected override async void OnResume()
         {
-            base.OnResume();
-            if (Shell.Current != null)
-            {
-                _ = CheckAndNavigateAsync(); // Подавляем предупреждение намеренно
-            }
+            await CheckAndNavigateAsync();
+        }
+
+        protected override void OnSleep()
+        {
+            // Здесь можно сохранять состояние приложения, если нужно
         }
 
         private async Task CheckAndNavigateAsync()
         {
-            // Ожидаем результата выполнения IsSettingsRequiredAsync()
-            if (await IsSettingsRequiredAsync())
+            try
             {
-                await Shell.Current.GoToAsync("//SettingsPage");
+                if (await IsSettingsRequiredAsync())
+                {
+                    await Shell.Current.GoToAsync("//SettingsPage");
+                }
+                else if (Preferences.Get("IsLoggedIn", false))
+                {
+                    await Shell.Current.GoToAsync($"//{nameof(AboutPage)}");
+                }
+                else
+                {
+                    await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
+                }
             }
-            else if (Preferences.Get("IsLoggedIn", false))
-            else if (Preferences.Get("IsLoggedIn", false))
-                // Если пользователь авторизован, переходим на страницу AboutPage
-                await Shell.Current.GoToAsync("//AboutPage");
-                await Shell.Current.GoToAsync($"//{nameof(AboutPage)}");
-            }
-            else
-                // Если не авторизован, показываем страницу входа (LoginPage)
-                await Shell.Current.GoToAsync("//LoginPage");
-                await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Navigation error: {ex.Message}");
             }
         }
+
         private async Task<bool> IsSettingsRequiredAsync()
         {
             try
             {
-                // Проверяем наличие сохраненных учетных данных и идентификатора таблицы
                 var hasCredentials = await SecureStorage.GetAsync(CredentialsKey) != null;
                 var hasSpreadsheetId = !string.IsNullOrEmpty(Preferences.Get("SpreadsheetId", null));
                 return !hasCredentials || !hasSpreadsheetId;
             }
             catch (Exception ex)
             {
-                // В случае ошибки доступа к SecureStorage — считаем, что настройки требуются
                 System.Diagnostics.Debug.WriteLine($"SecureStorage error: {ex.Message}");
                 return true;
             }
         }
-        }
-        protected override void OnSleep()
-        {
-            base.OnSleep();
-        }
-        protected override void OnResume() { }        
     }
 }
