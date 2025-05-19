@@ -24,6 +24,7 @@ namespace MyApp
             Preferences.Set("IsLoggedIn", false);
             Preferences.Set("AccountId", string.Empty);
             UpdateFlyoutBehavior();
+
             Shell.Current.GoToAsync("//LoginPage");
         }
 

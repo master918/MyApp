@@ -20,6 +20,7 @@ namespace MyApp.Droid
             MobileBarcodeScanner.Initialize(Application);
             Xamarin.Essentials.Platform.Init(Application);
             ZXing.Net.Mobile.Forms.Android.Platform.Init();
+            SQLitePCL.Batteries.Init();
             LoadApplication(new App());
 
         }

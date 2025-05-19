@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using SQLite;
 
 namespace MyApp.Items
 {
     public class InventoryItem
     {
+        [PrimaryKey, AutoIncrement]
         public string Id { get; set; }
         public string Наименование { get; set; }
         public string Стеллаж { get; set; }

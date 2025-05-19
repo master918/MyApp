@@ -31,7 +31,7 @@
                        FontSize="14" 
                        Placeholder="Введите логин" 
                        PlaceholderColor="Gray"
-                       Text="{Binding Username}"
+                       Text="{Binding Login}"
                        TextColor="Black" />
             </Frame>
 
@@ -62,7 +62,8 @@
                     HorizontalOptions="FillAndExpand" 
                     Command="{Binding LoginCommand}"
                     TextColor="White"
-                    BackgroundColor="#007BFF" />
+                    BackgroundColor="#007BFF" 
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"/>
 
             <!-- Кнопка настроек - упрощенная версия без проверки на null -->
             <Button Text="Настройки" 

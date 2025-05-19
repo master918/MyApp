@@ -10,13 +10,6 @@ using System.Threading.Tasks;
 
 namespace MyApp.Items
 {
-    public class LogPass
-    {
-        public string Id { get; set; }
-        public string Login { get; set; }
-        public string Password { get; set; }
-    }
-
     public interface IDataStore<T>
     {
         Task<bool> AddItemAsync(T item);
