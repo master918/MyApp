@@ -1,4 +1,4 @@
-﻿using MyApp.Models;
+﻿using MyApp.Items;
 using MyApp.Services;
 using MyApp.Views;
 using System;
@@ -58,8 +58,8 @@ namespace MyApp.ViewModels
             try
             {
                 LogPasses.Clear();
-                var sheetData = await _googleService.GetSheetDataAsync();
-
+                //var sheetData = await _googleService.GetSheetDataAsync();
+                var sheetData = await _googleService.GetAuth();
 
                 foreach (var row in sheetData)
                 {

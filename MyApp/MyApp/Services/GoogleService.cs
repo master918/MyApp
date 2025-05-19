@@ -9,7 +9,7 @@ using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
-using MyApp.Models;
+using MyApp.Items;
 using Newtonsoft.Json;
 using Xamarin.Essentials;
 using Xamarin.Forms;
@@ -152,6 +152,49 @@ namespace MyApp.Services
             return null;
         }
 
+        public SheetsService GetService()//Получение данных (текщий серв. акк, акк пользователя, и т.д.)
+        {
+            if (string.IsNullOrEmpty(Preferences.Get("SpreadsheetId", null)))//Установлена ли ссылка на документ
+            {
+                throw new InvalidOperationException("Не указана ссылка на документ");
+            }
+
+            var json = GetCredentialsJson();
+            if (string.IsNullOrEmpty(json))//Установлены ли Реквизиты
+            {
+                throw new InvalidOperationException("Реквизиты Service account не найдены");
+            }
+
+            var creds = JsonConvert.DeserializeObject<GoogleServiceAccountCreds>(json);
+
+            var credential = new ServiceAccountCredential(
+                new ServiceAccountCredential.Initializer(creds.client_email)
+                {
+                    Scopes = new[] { SheetsService.Scope.Spreadsheets }
+                }.FromPrivateKey(creds.private_key));
+
+            var service = new SheetsService(new BaseClientService.Initializer
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = "MyApp",
+            });
+            return service;
+        }
+        public async Task<IList<IList<object>>> GetAuth()//Получение логина и пароля из GoogleSheets
+        {
+            try
+            {
+                var request = GetService().Spreadsheets.Values.Get(Preferences.Get("SpreadsheetId", null), "Authorization!A:C");//Запрос
+                var response = await request.ExecuteAsync();//Ответ
+                //Логирование
+                return response.Values ?? new List<IList<object>>();
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine($"Ошибка: {ex}");
+                throw;
+            }
+        }
         public async Task<IList<IList<object>>> GetSheetDataAsync()
         {
             try

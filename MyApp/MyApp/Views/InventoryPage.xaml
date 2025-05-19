@@ -107,10 +107,11 @@
         <zxing:ZXingScannerView x:Name="scannerView"
                                 IsScanning="False"
                                 IsVisible="False"
-                                OnScanResult="Handle_OnScanResult"
+                                
                                 AutomationId="zxingScannerView"
                                 AbsoluteLayout.LayoutBounds="0,0,1,1"
                                 AbsoluteLayout.LayoutFlags="All" />
+        <!-- Сканер  OnScanResult="Handle_OnScanResult" -->
 
     </AbsoluteLayout>
 </ContentPage>
