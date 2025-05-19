@@ -135,13 +135,6 @@ namespace MyApp.Services
                 throw new InvalidOperationException("Не указана ссылка на документ");
             }
 
-        public SheetsService GetService()//Получение данных (текщий серв. акк, акк пользователя, и т.д.)
-        {
-            if (string.IsNullOrEmpty(Preferences.Get("SpreadsheetId", null)))//Установлена ли ссылка на документ
-            {
-                throw new InvalidOperationException("Не указана ссылка на документ");
-            }
-
             var json = GetCredentialsJson();
             if (string.IsNullOrEmpty(json))//Установлены ли Реквизиты
             {
