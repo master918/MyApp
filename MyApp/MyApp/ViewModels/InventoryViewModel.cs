@@ -4,7 +4,7 @@ using Xamarin.Forms;
 using MyApp.Services;
 using System.Linq;
 using System;
-using MyApp.Models;
+using MyApp.Items;
 using Xamarin.Essentials;
 using System.Collections.Generic;
 using Newtonsoft.Json;

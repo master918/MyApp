@@ -1,4 +1,4 @@
-﻿using MyApp.Models;
+﻿using MyApp.Items;
 using MyApp.ViewModels;
 using System.Linq;
 using System.Threading.Tasks;
@@ -47,20 +47,20 @@ namespace MyApp.Views
             MessagingCenter.Unsubscribe<InventoryViewModel>(this, "StartScanner");
         }
 
-        private void Handle_OnScanResult(ZXing.Result result)
-        {
-            Device.BeginInvokeOnMainThread(async () =>
-            {
-                scannerView.IsScanning = false;
-                scannerView.IsVisible = false;
+        //private void Handle_OnScanResult(ZXing.Result result)
+        //{
+        //    Device.BeginInvokeOnMainThread(async () =>
+        //    {
+        //        scannerView.IsScanning = false;
+        //        scannerView.IsVisible = false;
 
-                if (!string.IsNullOrWhiteSpace(result.Text))
-                {
-                    var vm = BindingContext as InventoryViewModel;
-                    await vm?.HandleScannedText(result.Text);
-                }
-            });
-        }
+        //        if (!string.IsNullOrWhiteSpace(result.Text))
+        //        {
+        //            var vm = BindingContext as InventoryViewModel;
+        //            await vm?.HandleScannedText(result.Text);
+        //        }
+        //    });
+        //}
 
         private void StartScanner()
         {

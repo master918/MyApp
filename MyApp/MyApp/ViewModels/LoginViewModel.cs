@@ -1,4 +1,4 @@
-﻿using MyApp.Models;
+﻿using MyApp.Items;
 using MyApp.Services;
 using MyApp.Views;
 using System;
@@ -17,7 +17,18 @@ namespace MyApp.ViewModels
     {
         private readonly GoogleService _googleService = new GoogleService();
         private string _username;
+        public string Username
+        {
+            get => _username;
+            set => SetProperty(ref _username, value);
+        }
+
         private string _password;
+        public string Password
+        {
+            get => _password;
+            set => SetProperty(ref _password, value);
+        }
 
         public Command LoginCommand { get; }
         public Command GoToSettingsCommand { get; }
@@ -29,37 +40,20 @@ namespace MyApp.ViewModels
             InitializeAsync();
         }
 
-        public string Username
-        {
-            get => _username;
-            set => SetProperty(ref _username, value);
-        }
-
-        public string Password
-        {
-            get => _password;
-            set => SetProperty(ref _password, value);
-        }
-
         public ObservableCollection<LogPass> LogPasses { get; } = new ObservableCollection<LogPass>();
 
+        //Инициализация
         private async void InitializeAsync()
         {
             await LoadDataAsync();
         }
-
-        private async Task OnGoToSettings()
-        {
-            await Shell.Current.GoToAsync(nameof(SettingsPage));
-        }
-
+        //Получение данных
         public async Task LoadDataAsync()
         {
             try
             {
                 LogPasses.Clear();
-                var sheetData = await _googleService.GetSheetDataAsync();
-
+                var sheetData = await _googleService.GetAuth();
 
                 foreach (var row in sheetData)
                 {
@@ -70,7 +64,6 @@ namespace MyApp.ViewModels
                         Password = (row.Count > 2) ? row[2]?.ToString() ?? null : null,
                     });
                 }
-                LogPasses.Remove(LogPasses[0]);
             }
             catch (Exception ex)
             {
@@ -78,7 +71,12 @@ namespace MyApp.ViewModels
                 await Shell.Current.GoToAsync($"//{nameof(SettingsPage)}");
             }
         }
-
+        
+        //Кнопки
+        private async Task OnGoToSettings()
+        {
+            await Shell.Current.GoToAsync(nameof(SettingsPage));
+        }
         private async Task OnLoginClicked()
         {
             try
@@ -101,8 +99,10 @@ namespace MyApp.ViewModels
                         .Id.ToString();
                     Preferences.Set("AccountId", accountId ?? string.Empty);
 
+                    //Запись в логи информации о входе
+
                     (App.Current.MainPage as AppShell)?.UpdateFlyoutBehavior();
-                    await Shell.Current.GoToAsync($"//{nameof(AboutPage)}");
+                    await Shell.Current.GoToAsync($"//{nameof(AboutPage)}");//Переход на страницу About
                 }
                 else
                 {
