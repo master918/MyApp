@@ -55,33 +55,9 @@ namespace MyApp.Services
 
         public GoogleService()
         {
-            TryLoadEmbeddedCredentials();
             LoadCurrentServiceAccount();
         }
 
-        private void TryLoadEmbeddedCredentials()
-        {
-            try
-            {
-                var assembly = IntrospectionExtensions.GetTypeInfo(typeof(GoogleService)).Assembly;
-                using (var stream = assembly.GetManifestResourceStream($"MyApp.Services.{CredentialsFileName}"))
-                {
-                    if (stream != null)
-                    {
-                        using (var reader = new StreamReader(stream))
-                        {
-                            var json = reader.ReadToEnd();
-                            // Сохраняем в SecureStorage
-                            SecureStorage.SetAsync(CredentialsKey, json).Wait();
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Игнорируем ошибки при загрузке встроенного файла
-            }
-        }
         private void LoadCurrentServiceAccount()
         {
             try
@@ -159,6 +135,13 @@ namespace MyApp.Services
                 throw new InvalidOperationException("Не указана ссылка на документ");
             }
 
+        public SheetsService GetService()//Получение данных (текщий серв. акк, акк пользователя, и т.д.)
+        {
+            if (string.IsNullOrEmpty(Preferences.Get("SpreadsheetId", null)))//Установлена ли ссылка на документ
+            {
+                throw new InvalidOperationException("Не указана ссылка на документ");
+            }
+
             var json = GetCredentialsJson();
             if (string.IsNullOrEmpty(json))//Установлены ли Реквизиты
             {
@@ -184,7 +167,7 @@ namespace MyApp.Services
         {
             try
             {
-                var request = GetService().Spreadsheets.Values.Get(Preferences.Get("SpreadsheetId", null), "Authorization!A:C");//Запрос
+                var request = GetService().Spreadsheets.Values.Get(Preferences.Get("SpreadsheetId", null), "Authorization!A2:C1000");//Запрос
                 var response = await request.ExecuteAsync();//Ответ
                 //Логирование
                 return response.Values ?? new List<IList<object>>();
