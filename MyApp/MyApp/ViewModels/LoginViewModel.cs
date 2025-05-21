@@ -10,17 +10,20 @@ using System.Text;
 using System.Threading.Tasks;
 using Xamarin.Essentials;
 using Xamarin.Forms;
+using Xamarin.Forms.Xaml;
 
 namespace MyApp.ViewModels
 {
     public class LoginViewModel : BaseViewModel
     {
         private readonly GoogleService _googleService = new GoogleService();
-        private string _username;
-        public string Username
+        private readonly UserService _userService = new UserService();
+
+        private string _login;
+        public string Login
         {
-            get => _username;
-            set => SetProperty(ref _username, value);
+            get => _login;
+            set => SetProperty(ref _login, value);
         }
 
         private string _password;
@@ -37,45 +40,21 @@ namespace MyApp.ViewModels
         {
             LoginCommand = new Command(async () => await OnLoginClicked());
             GoToSettingsCommand = new Command(async () => await OnGoToSettings());
-            InitializeAsync();
         }
-
-        public ObservableCollection<LogPass> LogPasses { get; } = new ObservableCollection<LogPass>();
-
-        //Инициализация
-        private async void InitializeAsync()
+        public async Task InitAsync()
         {
-            await LoadDataAsync();
-        }
-        //Получение данных
-        public async Task LoadDataAsync()
-        {
-            try
+            if (!Preferences.Get("IsLoggedIn", false)) 
             {
-                LogPasses.Clear();
-                var sheetData = await _googleService.GetAuth();
-
-                foreach (var row in sheetData)
-                {
-                    LogPasses.Add(new LogPass
-                    {
-                        Id = row[0]?.ToString() ?? null,
-                        Login = (row.Count > 1) ? row[1]?.ToString() ?? null : null,
-                        Password = (row.Count > 2) ? row[2]?.ToString() ?? null : null,
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                await Application.Current.MainPage.DisplayAlert("Ошибка", ex.Message, "OK");
-                await Shell.Current.GoToAsync($"//{nameof(SettingsPage)}");
+                IsBusy = true;
+                await _userService.GetUsers();
+                IsBusy = false;
             }
         }
-        
+
         //Кнопки
         private async Task OnGoToSettings()
         {
-            await Shell.Current.GoToAsync(nameof(SettingsPage));
+            await Shell.Current.GoToAsync($"///{nameof(SettingsPage)}");
         }
         private async Task OnLoginClicked()
         {
@@ -89,19 +68,28 @@ namespace MyApp.ViewModels
                         "OK");
                     await Shell.Current.GoToAsync($"//{nameof(SettingsPage)}");
                     return;
-                }
+                }//Проверка подключения API -> Переход в настройки
 
-                if (LogPasses.Any(i => i.Login == Username && i.Password == Password))
+                if (!NetworkService.IsConnectedToInternet())
                 {
-                    Preferences.Set("IsLoggedIn", true);
-                    string accountId = LogPasses
-                        .FirstOrDefault(i => i.Login == Username && i.Password == Password)?
-                        .Id.ToString();
-                    Preferences.Set("AccountId", accountId ?? string.Empty);
+                    await Application.Current.MainPage.DisplayAlert(
+                        "Нет подключения",
+                        "Проверьте подключение к интернету и повторите попытку.",
+                        "OK");
+                    return;
+                }//Проверка соединения
 
-                    //Запись в логи информации о входе
+                if (string.IsNullOrWhiteSpace(Login) || string.IsNullOrWhiteSpace(Password))
+                {
+                    await Application.Current.MainPage.DisplayAlert("Ошибка", "Введите логин и пароль", "OK");
+                    return;
+                }//Проверка пустых символов
 
-                    (App.Current.MainPage as AppShell)?.UpdateFlyoutBehavior();
+                await _userService.IsAccess(Login, Password);//Попытка получения доступа 
+                
+                if (Preferences.Get("IsLoggedIn", false))
+                {
+                   (App.Current.MainPage as AppShell)?.UpdateFlyoutBehavior();
                     await Shell.Current.GoToAsync($"//{nameof(AboutPage)}");//Переход на страницу About
                 }
                 else

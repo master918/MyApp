@@ -13,8 +13,9 @@ namespace MyApp
         public App()
         {
             InitializeComponent();
-            InitializeDefaultSettings();
-            SetMainPage();
+            InitializeDefaultSettings();//Настройки по усолчанию при первом запуске после установки
+            SetMainPage();//Установка главной страницы
+            LoadFromDB();//Загрузка из БД если пользователь авторизован
         }
 
         private void InitializeDefaultSettings()
@@ -23,12 +24,10 @@ namespace MyApp
             {
                 Preferences.Set("FirstRun", false);
                 Preferences.Set("IsLoggedIn", false);
-                Preferences.Set("AccountId", string.Empty);
                 Preferences.Set("SpreadsheetId", string.Empty);
                 SecureStorage.Remove(CredentialsKey);
             }
         }
-
         private void SetMainPage()
         {
             // Пока не знаем, что нужно показывать — ставим заглушку
@@ -37,6 +36,14 @@ namespace MyApp
             // Навигация будет выполнена после полной инициализации
             Device.BeginInvokeOnMainThread(async () => await CheckAndNavigateAsync());
         }
+        private void LoadFromDB()
+        {
+            if (Preferences.ContainsKey("FirstRun") && Preferences.Get("IsLoggedIn", false))
+            {
+
+            }
+        }
+
 
         protected override async void OnStart()
         {

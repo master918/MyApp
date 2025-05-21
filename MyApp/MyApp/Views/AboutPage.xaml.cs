@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MyApp.Services;
+using System;
 using System.ComponentModel;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
@@ -11,5 +12,10 @@ namespace MyApp.Views
         {
             InitializeComponent();
         }
+        protected override async void OnAppearing()
+        {
+           await LocalDbService.ExportDatabaseForDebugging();
+        }
+        
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -34,7 +35,6 @@ namespace MyApp.Services
         }
 
         private const string DefaultRange = "Authorization!A:C";
-        private const string CredentialsFileName = "credentials.json";
         private const string CredentialsKey = "GoogleServiceCredentials";
 
         public Task<bool> HasValidSettings()
@@ -48,7 +48,6 @@ namespace MyApp.Services
         public void ResetAuthSettings()
         {
             Preferences.Set("IsLoggedIn", false);
-            Preferences.Set("AccountId", string.Empty);
         }
 
         public string CurrentServiceAccount { get; private set; }
@@ -99,31 +98,13 @@ namespace MyApp.Services
 
         public string GetCredentialsJson()
         {
-            // Затем проверяем сохраненные в SecureStorage
+            // Проверяем сохраненные в SecureStorage
             var secureStorageTask = SecureStorage.GetAsync(CredentialsKey);
             secureStorageTask.Wait(); // Блокируем, так как в конструкторе нельзя async
             var secureCredentials = secureStorageTask.Result;
 
             if (!string.IsNullOrEmpty(secureCredentials))
                 return secureCredentials;
-
-            // Затем проверяем локальный файл (если сохраняли)
-            var localPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), CredentialsFileName);
-            if (File.Exists(localPath))
-                return File.ReadAllText(localPath);
-
-            // Если нет сохраненных, используем встроенный файл
-            var assembly = IntrospectionExtensions.GetTypeInfo(typeof(GoogleService)).Assembly;
-            using (var stream = assembly.GetManifestResourceStream($"MyApp.Services.{CredentialsFileName}"))
-            {
-                if (stream != null)
-                {
-                    using (var reader = new StreamReader(stream))
-                    {
-                        return reader.ReadToEnd();
-                    }
-                }
-            }
 
             return null;
         }
@@ -156,14 +137,28 @@ namespace MyApp.Services
             });
             return service;
         }
-        public async Task<IList<IList<object>>> GetAuth()//Получение логина и пароля из GoogleSheets
+        public async Task<ObservableCollection<User>> GetUsers()//Получение Users из GoogleSheets
         {
             try
             {
+                ObservableCollection<User> UsersList = new ObservableCollection<User>();//Список из GoogleSheets
                 var request = GetService().Spreadsheets.Values.Get(Preferences.Get("SpreadsheetId", null), "Authorization!A2:C1000");//Запрос
                 var response = await request.ExecuteAsync();//Ответ
                 //Логирование
-                return response.Values ?? new List<IList<object>>();
+                //return response.Values ?? new List<IList<object>>();
+
+                foreach (var row in response.Values)
+                {
+                    UsersList.Add(new User
+                    {
+                        Id = int.Parse(row[0].ToString()),
+                        Login = (row.Count > 1) ? row[1]?.ToString() ?? null : null,
+                        Password = (row.Count > 2) ? row[2]?.ToString() ?? null : null,
+                        LastEntrance = row.Count > 3 ? row[3]?.ToString() ?? null : null,
+                        LastActivity = row.Count > 4 ? row[4]?.ToString() ?? null : null,
+                    });
+                }
+                return UsersList;
             }
             catch(Exception ex)
             {
@@ -252,6 +247,20 @@ namespace MyApp.Services
             {
                 return false;
             }
+        }
+
+        public async Task UpdateCell(string sheetName, string cellAddress, string value)
+        {
+            var range = $"{sheetName}!{cellAddress}";
+            var valueRange = new ValueRange
+            {
+                Values = new List<IList<object>> { new List<object> { value } }
+            };
+
+            var updateRequest = GetService().Spreadsheets.Values.Update(valueRange, Preferences.Get("SpreadsheetId", null), range);
+            updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.USERENTERED;
+
+            await updateRequest.ExecuteAsync();
         }
 
         public async Task<List<string>> GetSheetTitlesAsync()

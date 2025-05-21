@@ -288,6 +288,14 @@ namespace MyApp.ViewModels
         }
         public async Task CheckConnectionStatusAsync()
         {
+            if (!NetworkService.IsConnectedToInternet())
+            {
+                await Application.Current.MainPage.DisplayAlert(
+                    "Нет подключения",
+                    "Проверьте подключение к интернету и повторите попытку.",
+                    "OK");
+                return;
+            }
             if (CurrentServiceAccount == "Не настроен" || 
                 CurrentServiceAccount == "Ошибка загрузки")
             {
