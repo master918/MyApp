@@ -17,7 +17,7 @@ namespace MyApp.ViewModels
     public class LoginViewModel : BaseViewModel
     {
         private readonly GoogleService _googleService = new GoogleService();
-        private readonly AuthService _authService = new AuthService();
+        private readonly UserService _userService = new UserService();
 
         private string _login;
         public string Login
@@ -43,9 +43,12 @@ namespace MyApp.ViewModels
         }
         public async Task InitAsync()
         {
-            IsBusy = true;
-            await _authService.LocalUsersList();
-            IsBusy = false;
+            if (!Preferences.Get("IsLoggedIn", false)) 
+            {
+                IsBusy = true;
+                await _userService.GetUsers();
+                IsBusy = false;
+            }
         }
 
         //Кнопки
@@ -65,23 +68,25 @@ namespace MyApp.ViewModels
                         "OK");
                     await Shell.Current.GoToAsync($"//{nameof(SettingsPage)}");
                     return;
-                }
+                }//Проверка подключения API -> Переход в настройки
 
-                if(!NetworkService.IsConnectedToInternet())
-{
+                if (!NetworkService.IsConnectedToInternet())
+                {
                     await Application.Current.MainPage.DisplayAlert(
                         "Нет подключения",
                         "Проверьте подключение к интернету и повторите попытку.",
                         "OK");
                     return;
-                }
+                }//Проверка соединения
 
                 if (string.IsNullOrWhiteSpace(Login) || string.IsNullOrWhiteSpace(Password))
                 {
                     await Application.Current.MainPage.DisplayAlert("Ошибка", "Введите логин и пароль", "OK");
                     return;
-                }
-                await _authService.IsAccess(Login, Password);
+                }//Проверка пустых символов
+
+                await _userService.IsAccess(Login, Password);//Попытка получения доступа 
+                
                 if (Preferences.Get("IsLoggedIn", false))
                 {
                    (App.Current.MainPage as AppShell)?.UpdateFlyoutBehavior();

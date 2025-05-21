@@ -22,7 +22,6 @@ namespace MyApp
         public void ResetAuthAndNavigate()
         {
             Preferences.Set("IsLoggedIn", false);
-            Preferences.Set("AccountId", string.Empty);
             UpdateFlyoutBehavior();
 
             Shell.Current.GoToAsync("//LoginPage");

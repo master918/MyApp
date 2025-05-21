@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -47,7 +48,6 @@ namespace MyApp.Services
         public void ResetAuthSettings()
         {
             Preferences.Set("IsLoggedIn", false);
-            Preferences.Set("AccountId", string.Empty);
         }
 
         public string CurrentServiceAccount { get; private set; }
@@ -137,14 +137,28 @@ namespace MyApp.Services
             });
             return service;
         }
-        public async Task<IList<IList<object>>> GetUsers()//Получение Users из GoogleSheets
+        public async Task<ObservableCollection<User>> GetUsers()//Получение Users из GoogleSheets
         {
             try
             {
+                ObservableCollection<User> UsersList = new ObservableCollection<User>();//Список из GoogleSheets
                 var request = GetService().Spreadsheets.Values.Get(Preferences.Get("SpreadsheetId", null), "Authorization!A2:C1000");//Запрос
                 var response = await request.ExecuteAsync();//Ответ
                 //Логирование
-                return response.Values ?? new List<IList<object>>();
+                //return response.Values ?? new List<IList<object>>();
+
+                foreach (var row in response.Values)
+                {
+                    UsersList.Add(new User
+                    {
+                        Id = int.Parse(row[0].ToString()),
+                        Login = (row.Count > 1) ? row[1]?.ToString() ?? null : null,
+                        Password = (row.Count > 2) ? row[2]?.ToString() ?? null : null,
+                        LastEntrance = row.Count > 3 ? row[3]?.ToString() ?? null : null,
+                        LastActivity = row.Count > 4 ? row[4]?.ToString() ?? null : null,
+                    });
+                }
+                return UsersList;
             }
             catch(Exception ex)
             {

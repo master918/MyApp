@@ -19,7 +19,7 @@ namespace MyApp.Views
             BindingContext = new LoginViewModel();
         }
 
-        protected override async void OnAppearing()
+        protected override async void OnAppearing()//При загрузке страницы
         {
             var vm = BindingContext as LoginViewModel;
             vm.Login = string.Empty;

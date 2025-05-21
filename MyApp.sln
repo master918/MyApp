@@ -4,8 +4,6 @@ VisualStudioVersion = 17.13.35825.156
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyApp.Android", "MyApp\MyApp.Android\MyApp.Android.csproj", "{1E5E1701-871F-4E41-BB6C-6BB39BF41F8C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyApp.iOS", "MyApp\MyApp.iOS\MyApp.iOS.csproj", "{7B7FC053-78CD-4C74-AE26-EBDEAC831526}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyApp", "MyApp\MyApp\MyApp.csproj", "{A45F1B01-10D2-4F35-B0AC-026D949766D3}"
 EndProject
 Global
@@ -20,12 +18,6 @@ Global
 		{1E5E1701-871F-4E41-BB6C-6BB39BF41F8C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1E5E1701-871F-4E41-BB6C-6BB39BF41F8C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{1E5E1701-871F-4E41-BB6C-6BB39BF41F8C}.Release|Any CPU.Deploy.0 = Release|Any CPU
-		{7B7FC053-78CD-4C74-AE26-EBDEAC831526}.Debug|Any CPU.ActiveCfg = Debug|iPhone
-		{7B7FC053-78CD-4C74-AE26-EBDEAC831526}.Debug|Any CPU.Build.0 = Debug|iPhone
-		{7B7FC053-78CD-4C74-AE26-EBDEAC831526}.Debug|Any CPU.Deploy.0 = Debug|iPhone
-		{7B7FC053-78CD-4C74-AE26-EBDEAC831526}.Release|Any CPU.ActiveCfg = Release|iPhoneSimulator
-		{7B7FC053-78CD-4C74-AE26-EBDEAC831526}.Release|Any CPU.Build.0 = Release|iPhoneSimulator
-		{7B7FC053-78CD-4C74-AE26-EBDEAC831526}.Release|Any CPU.Deploy.0 = Release|iPhoneSimulator
 		{A45F1B01-10D2-4F35-B0AC-026D949766D3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A45F1B01-10D2-4F35-B0AC-026D949766D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A45F1B01-10D2-4F35-B0AC-026D949766D3}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
