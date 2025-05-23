@@ -68,21 +68,7 @@ namespace MyApp.ViewModels
             SaveCommand = new Command(async () => await OnSave());
             CancelCommand = new Command(async () => await OnCancel());
             OpenSpreadsheetCommand = new Command(async () => await OpenSpreadsheet());
-            TestConnectionCommand = new Command(async () => await TestConnection());
             UploadCredentialsCommand = new Command(async () => await UploadCredentials());
-
-            CheckInitialSetup();
-        }
-
-        private async void CheckInitialSetup()
-        {
-            if (!await _googleService.HasValidSettings())
-            {
-                await Application.Current.MainPage.DisplayAlert(
-                    "Требуется настройка",
-                    "Пожалуйста, настройте подключение к Google Sheets",
-                    "OK");
-            }
         }
 
         private void LoadCurrentSettings()
@@ -96,7 +82,6 @@ namespace MyApp.ViewModels
         public ICommand SaveCommand { get; }
         public ICommand CancelCommand { get; }
         public ICommand OpenSpreadsheetCommand { get; }
-        public ICommand TestConnectionCommand { get; }
         public ICommand UploadCredentialsCommand { get; }
 
         private async Task UploadCredentials()
@@ -224,6 +209,23 @@ namespace MyApp.ViewModels
                 IsBusy = false;
             }
         }
+        private string ExtractSpreadsheetIdFromUrl(string url)
+        {
+            var uri = new Uri(url);
+            if (uri.Host != "docs.google.com")
+                throw new Exception("Неверный URL Google Sheets");
+
+            var segments = uri.Segments;
+            for (int i = 0; i < segments.Length; i++)
+            {
+                if (segments[i] == "d/")
+                {
+                    return segments[i + 1].TrimEnd('/');
+                }
+            }
+
+            throw new Exception("Не удалось извлечь ID документа");
+        }
 
         private async Task OnCancel()
         {
@@ -250,42 +252,6 @@ namespace MyApp.ViewModels
             }
         }
 
-        private async Task TestConnection()
-        {
-            try
-            {
-                IsBusy = true;
-
-                // Извлекаем ID документа из URL
-                var spreadsheetId = ExtractSpreadsheetIdFromUrl(SpreadsheetUrl);
-
-                // Проверяем подключение с текущим ID
-                var service = new GoogleService();
-                var isConnected = await service.TestConnectionAsync(spreadsheetId);
-
-                if (isConnected)
-                {
-                    // Если подключение успешно, сохраняем новый ID
-                    Preferences.Set("SpreadsheetId", spreadsheetId);
-                    await Application.Current.MainPage.DisplayAlert("Успех",
-                        "Подключение к Google Sheets успешно установлено", "OK");
-                }
-                else
-                {
-                    await Application.Current.MainPage.DisplayAlert("Ошибка",
-                        "Не удалось подключиться к указанной таблице", "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                await Application.Current.MainPage.DisplayAlert("Ошибка",
-                    $"Ошибка при проверке подключения: {ex.Message}", "OK");
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
         public async Task CheckConnectionStatusAsync()
         {
             if (!NetworkService.IsConnectedToInternet())
@@ -337,22 +303,6 @@ namespace MyApp.ViewModels
             }
         }
 
-        private string ExtractSpreadsheetIdFromUrl(string url)
-        {
-            var uri = new Uri(url);
-            if (uri.Host != "docs.google.com")
-                throw new Exception("Неверный URL Google Sheets");
-
-            var segments = uri.Segments;
-            for (int i = 0; i < segments.Length; i++)
-            {
-                if (segments[i] == "d/")
-                {
-                    return segments[i + 1].TrimEnd('/');
-                }
-            }
-
-            throw new Exception("Не удалось извлечь ID документа");
-        }
+        
     }
 }

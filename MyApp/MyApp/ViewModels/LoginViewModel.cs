@@ -43,6 +43,16 @@ namespace MyApp.ViewModels
         }
         public async Task InitAsync()
         {
+            if (!await _googleService.HasValidSettings())
+            {
+                await Application.Current.MainPage.DisplayAlert(
+                    "Требуется настройка",
+                    "Пожалуйста, сначала настройте подключение к Google Sheets",
+                    "OK");
+                await Shell.Current.GoToAsync($"//{nameof(SettingsPage)}");
+                return;
+            }//Проверка подключения API -> Переход в настройки
+
             if (!Preferences.Get("IsLoggedIn", false)) 
             {
                 IsBusy = true;
@@ -60,16 +70,6 @@ namespace MyApp.ViewModels
         {
             try
             {
-                if (!await _googleService.HasValidSettings())
-                {
-                    await Application.Current.MainPage.DisplayAlert(
-                        "Требуется настройка",
-                        "Пожалуйста, сначала настройте подключение к Google Sheets",
-                        "OK");
-                    await Shell.Current.GoToAsync($"//{nameof(SettingsPage)}");
-                    return;
-                }//Проверка подключения API -> Переход в настройки
-
                 if (!NetworkService.IsConnectedToInternet())
                 {
                     await Application.Current.MainPage.DisplayAlert(
@@ -85,7 +85,7 @@ namespace MyApp.ViewModels
                     return;
                 }//Проверка пустых символов
 
-                await _userService.IsAccess(Login, Password);//Попытка получения доступа 
+                _userService.IsAccess(Login, Password);//Попытка получения доступа 
                 
                 if (Preferences.Get("IsLoggedIn", false))
                 {

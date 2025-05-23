@@ -1,5 +1,7 @@
-﻿using MyApp.Views;
+﻿using MyApp.Services;
+using MyApp.Views;
 using System;
+using System.Threading.Tasks;
 using Xamarin.Essentials;
 using Xamarin.Forms;
 
@@ -14,17 +16,26 @@ namespace MyApp
             
         }
 
-        private void OnMenuItemClicked(object sender, EventArgs e)
+        private async void OnMenuItemClicked(object sender, EventArgs e)
         {
-            ResetAuthAndNavigate();
+            var clearUserTask = LocalDbService.ClearUser();
+
+            // Безопасно вызываем ResetAuthAndNavigate в UI потоке
+            var resetTask = MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                await ResetAuthAndNavigate();
+            });
+
+            await Task.WhenAll(clearUserTask, resetTask);
         }
 
-        public void ResetAuthAndNavigate()
+
+        public async Task ResetAuthAndNavigate()
         {
             Preferences.Set("IsLoggedIn", false);
             UpdateFlyoutBehavior();
 
-            Shell.Current.GoToAsync("//LoginPage");
+            await Shell.Current.GoToAsync("//LoginPage");
         }
 
         public void UpdateFlyoutBehavior()

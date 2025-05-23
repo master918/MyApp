@@ -11,11 +11,6 @@ namespace MyApp.Views
         public AboutPage()
         {
             InitializeComponent();
-        }
-        protected override async void OnAppearing()
-        {
-           await LocalDbService.ExportDatabaseForDebugging();
-        }
-        
+        }    
     }
 }
