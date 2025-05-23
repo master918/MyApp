@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,26 +25,49 @@ namespace MyApp.Services
         {
             Users = await _sheetsService.GetUsers(); 
         }
-        public async Task IsAccess(string login, string password)//Проверка логина и пароля
+        public void IsAccess(string login, string password)//Проверка логина и пароля
         {
-            CurrentUser = Users.FirstOrDefault(u => u.Login == login && u.Password == password);//Получения User из БД
+            CurrentUser = Users.FirstOrDefault(u => u.Login == login && u.Password == password);
 
             if (CurrentUser != null)
             {
+                // Устанавливаем флаг доступа сразу
                 Preferences.Set("IsLoggedIn", true);
-                await UpdateUserActivityEntrance();//Обновление последнего входа
-                await LocalDbService.SaveCurrentUser(CurrentUser);
+
+                // Запускаем асинхронные операции без ожидания их завершения
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await LocalDbService.SaveCurrentUser(CurrentUser);//Сохранение в БД
+                        await UpdateUserActivityEntrance();//Обновление последнего входа
+                    }
+                    catch (Exception ex)
+                    {
+                        // Логирование ошибок, если нужно
+                        Debug.WriteLine($"Ошибка при сохранении пользователя: {ex.Message}");
+                    }
+                });
             }
-            else { Preferences.Set("IsLoggedIn", false); }
+            else
+            {
+                Preferences.Set("IsLoggedIn", false);
+            }
         }
 
         private async Task UpdateUserActivityEntrance()
         {
             CurrentUser.LastEntrance = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            CurrentUser.LastActivity = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
             await _sheetsService.UpdateCell(
                 "Authorization",
                 $"D{CurrentUser.Id + 1}",
                 CurrentUser.LastEntrance);
+
+            await _sheetsService.UpdateCell(
+                "Authorization",
+                $"E{CurrentUser.Id + 1}",
+                CurrentUser.LastActivity);
         }
     }
 }

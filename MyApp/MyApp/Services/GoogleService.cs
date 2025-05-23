@@ -37,7 +37,7 @@ namespace MyApp.Services
         private const string DefaultRange = "Authorization!A:C";
         private const string CredentialsKey = "GoogleServiceCredentials";
 
-        public Task<bool> HasValidSettings()
+        public Task<bool> HasValidSettings()//Проверка наличия сервисного акк и ссылки на GoogleSheets
         {
             var hasCredentials = !string.IsNullOrEmpty(GetCredentialsJson());
             var hasSpreadsheetId = !string.IsNullOrEmpty(Preferences.Get("SpreadsheetId", null));
@@ -145,7 +145,6 @@ namespace MyApp.Services
                 var request = GetService().Spreadsheets.Values.Get(Preferences.Get("SpreadsheetId", null), "Authorization!A2:C1000");//Запрос
                 var response = await request.ExecuteAsync();//Ответ
                 //Логирование
-                //return response.Values ?? new List<IList<object>>();
 
                 foreach (var row in response.Values)
                 {
@@ -240,7 +239,6 @@ namespace MyApp.Services
 
                 var request = service.Spreadsheets.Get(currentSpreadsheetId);
                 var response = await request.ExecuteAsync();
-
                 return response != null;
             }
             catch

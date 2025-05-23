@@ -41,7 +41,6 @@ namespace MyApp.Services
                 throw;
             }
         }
-
         private static async Task CreateTablesAsync()
         {
             try
@@ -59,8 +58,9 @@ namespace MyApp.Services
         {
             try
             {
-                await Database.DeleteAllAsync<User>();
+                var s = Database.QueryAsync<User>("select * from User").Result;
                 await Database.InsertOrReplaceAsync(user);
+                s = Database.QueryAsync<User>("select * from User").Result;
             }
             catch (Exception ex)
             {
@@ -86,7 +86,7 @@ namespace MyApp.Services
         {
             try
             {
-                await Database.DeleteAllAsync<User>();
+                await Database.DeleteAllAsync<User>().ConfigureAwait(false);
                 Debug.WriteLine("User data cleared");
             }
             catch (Exception ex)
@@ -95,36 +95,5 @@ namespace MyApp.Services
                 throw;
             }
         }
-
-        public interface IFileExportService
-        {
-            string ExportDatabase(string sourcePath, string fileName);
-        }
-        public static async Task ExportDatabaseForDebugging()
-        {
-            try
-            {
-                var internalDbPath = Path.Combine(FileSystem.AppDataDirectory, "Myapp.db");
-
-                var exportService = DependencyService.Get<IFileExportService>();
-                if (exportService == null)
-                    throw new Exception("Export service not found");
-
-                string exportedPath = exportService.ExportDatabase(internalDbPath, "Myapp_debug.db");
-
-                Debug.WriteLine($"БД экспортирована в: {exportedPath}");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка при экспорте БД: {ex.Message}");
-                if (Application.Current?.MainPage != null)
-                {
-                    await Application.Current.MainPage.DisplayAlert("Ошибка",
-                        $"Не удалось экспортировать БД: {ex.Message}", "OK");
-                }
-            }
-        }
-
-
     }
 }

@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Xamarin.Essentials;
 using Xamarin.Forms;
 using MyApp.Views;
+using MyApp.Services;
 
 namespace MyApp
 {
@@ -48,6 +49,7 @@ namespace MyApp
         protected override async void OnStart()
         {
             await CheckAndNavigateAsync();
+
         }
 
         protected override async void OnResume()
