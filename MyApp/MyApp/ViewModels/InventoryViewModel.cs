@@ -98,65 +98,187 @@ namespace MyApp.ViewModels
                 await Application.Current.MainPage.DisplayAlert("Ошибка", $"Не удалось загрузить список помещений: {ex.Message}", "OK");
             }
         }
+        //public async Task LoadSheetStructureAsync()
+        //{
+        //    try
+        //    {
+        //        IsLoading = true;
+
+        //        var service = new GoogleService();
+        //        var currentSpreadsheetId = Preferences.Get("SpreadsheetId", null);
+        //        var sheetName = SelectedSheet;
+
+        //        var range = $"{sheetName}!A1:Z2"; // Считываем строки с метками и заголовками
+        //        var serviceData = await service.GetRangeValuesAsync(currentSpreadsheetId, range);
+
+        //        InventoryFields.Clear();
+
+        //        if (serviceData.Count >= 2)
+        //        {
+        //            var firstRow = serviceData[0]; // строки с "!" — пропускаемые поля
+        //            var secondRow = serviceData[1]; // заголовки полей
+
+        //            int nameFieldIndex = -1;
+
+        //            for (int i = 0; i < secondRow.Count; i++)
+        //            {
+        //                var skip = i < firstRow.Count && firstRow[i]?.ToString().Trim() == "!";
+        //                var title = secondRow[i]?.ToString();
+
+        //                if (!skip && !string.IsNullOrWhiteSpace(title))
+        //                {
+        //                    var field = new InventoryField { Label = title };
+
+        //                    // Определим, является ли это поле "Наименование"
+        //                    if (field.IsNameField)
+        //                    {
+        //                        nameFieldIndex = i;
+        //                    }
+
+        //                    InventoryFields.Add(field);
+        //                }
+        //            }
+
+        //            // Загружаем значения для поля "Наименование", если индекс найден
+        //            if (nameFieldIndex >= 0)
+        //            {
+        //                var nameRange = $"{sheetName}!{(char)('A' + nameFieldIndex)}3:{(char)('A' + nameFieldIndex)}";
+        //                var nameValues = await service.GetRangeValuesAsync(currentSpreadsheetId, nameRange);
+
+        //                var nameField = InventoryFields.FirstOrDefault(f => f.IsNameField);
+        //                if (nameField != null)
+        //                {
+        //                    nameField.Items.Clear();
+
+        //                    foreach (var row in nameValues)
+        //                    {
+        //                        if (row.Count > 0 && !string.IsNullOrWhiteSpace(row[0]?.ToString()))
+        //                            nameField.Items.Add(row[0].ToString());
+        //                    }
+        //                }
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        await Application.Current.MainPage.DisplayAlert("Ошибка", $"Ошибка при загрузке структуры формы: {ex.Message}", "OK");
+        //    }
+        //    finally
+        //    {
+        //        IsLoading = false;
+        //    }
+        //}
+
         public async Task LoadSheetStructureAsync()
         {
             try
             {
                 IsLoading = true;
 
-                var service = new GoogleService();
-                var currentSpreadsheetId = Preferences.Get("SpreadsheetId", null);
+                var spreadsheetId = Preferences.Get("SpreadsheetId", null);
                 var sheetName = SelectedSheet;
 
-                var range = $"{sheetName}!A1:Z2"; // Считываем строки с метками и заголовками
-                var serviceData = await service.GetRangeValuesAsync(currentSpreadsheetId, range);
+                //var maxColumns = 36; // A-AJ
+                //var maxRows = 1000;   // ограничим для безопасности
+                var range = $"{sheetName}!1:5";
+                //$"{sheetName}!A1:{(char)('A' + maxColumns - 1)}{maxRows}";
+
+                var serviceData = await _googleService.GetRangeValuesAsync(spreadsheetId, range);
 
                 InventoryFields.Clear();
+                ItemNames.Clear();
 
-                if (serviceData.Count >= 2)
+                int row = 0;
+                while (row < serviceData.Count)
                 {
-                    var firstRow = serviceData[0]; // строки с "!" — пропускаемые поля
-                    var secondRow = serviceData[1]; // заголовки полей
-
-                    int nameFieldIndex = -1;
-
-                    for (int i = 0; i < secondRow.Count; i++)
+                    var currentRow = serviceData[row];
+                    if (currentRow.Count == 0)
                     {
-                        var skip = i < firstRow.Count && firstRow[i]?.ToString().Trim() == "!";
-                        var title = secondRow[i]?.ToString();
+                        row++;
+                        continue;
+                    }
 
-                        if (!skip && !string.IsNullOrWhiteSpace(title))
+                    // Если есть наименование формы в первой ячейке — это начало формы
+                    var formTitle = currentRow[0]?.ToString();
+                    if (!string.IsNullOrWhiteSpace(formTitle) &&
+                        formTitle.StartsWith("ИНВ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        row++; // переходим к заголовкам
+                        if (row + 2 >= serviceData.Count)
+                            break;
+
+                        var headerRow1 = serviceData[row];
+                        var headerRow2 = serviceData[row + 1];
+                        var accessRow = serviceData[row + 2];
+
+                        var fieldCount = Math.Min(Math.Min(headerRow1.Count, headerRow2.Count), accessRow.Count);
+                        var nameFieldIndex = -1;
+
+                        for (int col = 0; col < fieldCount; col++)
                         {
-                            var field = new InventoryField { Label = title };
+                            var labelPart1 = headerRow1[col]?.ToString()?.Trim();
+                            var labelPart2 = headerRow2[col]?.ToString()?.Trim();
+                            var access = accessRow[col]?.ToString()?.Trim().ToUpper();
 
-                            // Определим, является ли это поле "Наименование"
-                            if (field.IsNameField)
+                            var label = $"{labelPart1} {labelPart2}".Trim();
+
+                            if (string.IsNullOrWhiteSpace(label) || access == "!")
+                                continue;
+
+                            var field = new InventoryField
                             {
-                                nameFieldIndex = i;
+                                Label = label
+                            };
+
+                            switch (access)
+                            {
+                                case "R":
+                                    // read-only — можно добавить доп. обработку
+                                    break;
+                                case "W":
+                                    // writable
+                                    break;
+                                case "NAME":
+                                    nameFieldIndex = col;
+                                    break;
                             }
 
                             InventoryFields.Add(field);
                         }
-                    }
 
-                    // Загружаем значения для поля "Наименование", если индекс найден
-                    if (nameFieldIndex >= 0)
-                    {
-                        var nameRange = $"{sheetName}!{(char)('A' + nameFieldIndex)}3:{(char)('A' + nameFieldIndex)}";
-                        var nameValues = await service.GetRangeValuesAsync(currentSpreadsheetId, nameRange);
-
-                        var nameField = InventoryFields.FirstOrDefault(f => f.IsNameField);
-                        if (nameField != null)
+                        // Загрузим список наименований, если есть поле NAME
+                        if (nameFieldIndex >= 0)
                         {
-                            nameField.Items.Clear();
+                            var nameColumnLetter = ((char)('A' + nameFieldIndex)).ToString();
+                            var nameRange = $"{sheetName}!{nameColumnLetter}{row + 4}:{nameColumnLetter}";
+                            var nameValues = await _googleService.GetRangeValuesAsync(spreadsheetId, nameRange);
 
-                            foreach (var row in nameValues)
+                            var nameField = InventoryFields.FirstOrDefault(f => f.Label.IndexOf("наименование", StringComparison.OrdinalIgnoreCase) >= 0);
+                            if (nameField != null)
                             {
-                                if (row.Count > 0 && !string.IsNullOrWhiteSpace(row[0]?.ToString()))
-                                    nameField.Items.Add(row[0].ToString());
+                                foreach (var valueRow in nameValues)
+                                {
+                                    if (valueRow.Count > 0 && !string.IsNullOrWhiteSpace(valueRow[0]?.ToString()))
+                                    {
+                                        var name = valueRow[0].ToString();
+                                        nameField.Items.Add(name);
+                                        ItemNames.Add(name); // если нужно глобально
+                                    }
+                                }
                             }
                         }
+
+                        row += 3; // пропускаем обработанные строки (заголовки + доступы)
                     }
+                    else
+                    {
+                        row++;
+                    }
+                }
+
+                if (InventoryFields.Count == 0)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Внимание", "Не удалось обнаружить структуру формы на листе", "OK");
                 }
             }
             catch (Exception ex)
@@ -168,6 +290,7 @@ namespace MyApp.ViewModels
                 IsLoading = false;
             }
         }
+
 
         private Dictionary<string, string> ParseQrData(string qrText)
         {
@@ -223,7 +346,6 @@ namespace MyApp.ViewModels
                 await Application.Current.MainPage.DisplayAlert("Предупреждение", "Не удалось сопоставить поля QR-кода с формой", "OK");
             }
         }
-
 
         private async void OpenCompletedForms()
         {

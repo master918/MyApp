@@ -1,4 +1,5 @@
-﻿using MyApp.Services;
+﻿using MyApp.Items;
+using MyApp.Services;
 using System;
 using System.ComponentModel;
 using Xamarin.Forms;
@@ -11,6 +12,11 @@ namespace MyApp.Views
         public AboutPage()
         {
             InitializeComponent();
-        }    
+        }
+
+        //protected override void OnAppearing()
+        //{
+        //    var s = LocalDbService.Database.QueryAsync<User>("select * from User").Result;
+        //}
     }
 }

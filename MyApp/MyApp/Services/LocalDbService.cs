@@ -5,51 +5,37 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using Xamarin.Essentials;
-using Xamarin.Forms.PlatformConfiguration;
-using Xamarin.Forms;
 
 namespace MyApp.Services
 {
     public static class LocalDbService
     {
         private static SQLiteAsyncConnection _database;
+
         public static SQLiteAsyncConnection Database
         {
             get
             {
                 if (_database == null)
-                {
-                    InitializeDatabase();
-                }
+                    throw new InvalidOperationException("Database is not initialized. Call InitializeAsync first.");
                 return _database;
             }
         }
 
-        private static void InitializeDatabase()
+        public static async Task InitializeAsync()
         {
+            if (_database != null) return;
+
             try
             {
                 var dbPath = Path.Combine(FileSystem.AppDataDirectory, "Myapp.db");
                 _database = new SQLiteAsyncConnection(dbPath);
-
-                // Создание таблиц
-                CreateTablesAsync().ConfigureAwait(false);
+                await _database.CreateTableAsync<User>();
+                await _database.CreateTableAsync<InventoryItem>();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Database initialization failed: {ex.Message}");
-                throw;
-            }
-        }
-        private static async Task CreateTablesAsync()
-        {
-            try
-            {
-                await _database.CreateTableAsync<User>();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Table creation failed: {ex.Message}");
                 throw;
             }
         }
@@ -58,9 +44,8 @@ namespace MyApp.Services
         {
             try
             {
-                var s = Database.QueryAsync<User>("select * from User").Result;
-                await Database.InsertOrReplaceAsync(user);
-                s = Database.QueryAsync<User>("select * from User").Result;
+                await _database.DeleteAllAsync<User>();
+                await _database.InsertOrReplaceAsync(user);
             }
             catch (Exception ex)
             {
@@ -73,7 +58,7 @@ namespace MyApp.Services
         {
             try
             {
-                return await Database.Table<User>().FirstOrDefaultAsync();
+                return await _database.Table<User>().FirstOrDefaultAsync();
             }
             catch (Exception ex)
             {
@@ -86,7 +71,7 @@ namespace MyApp.Services
         {
             try
             {
-                await Database.DeleteAllAsync<User>().ConfigureAwait(false);
+                await _database.DeleteAllAsync<User>();
                 Debug.WriteLine("User data cleared");
             }
             catch (Exception ex)
