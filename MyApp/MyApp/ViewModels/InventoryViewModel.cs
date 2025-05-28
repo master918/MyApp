@@ -336,12 +336,12 @@ namespace MyApp.ViewModels
                 // 1. Получаем поле Name
                 var nameField = fields.FirstOrDefault(f => f.IsNameField);
 
-                // 2. Получаем все поля (ReadOnly и Write)
+                // 2. Получаем ВСЕ поля кроме Name
                 var otherFields = fields
                     .Where(f => !f.IsNameField) // исключаем только Name поле
                     .ToList();
 
-                // 3. Загружаем список значений из локальной БД для автодополнения
+                // 3. Загружаем список значений для автодополнения (как было раньше)
                 if (nameField != null)
                 {
                     var entries = await LocalDbService.GetEntriesAsync(SelectedSheet);
@@ -352,29 +352,30 @@ namespace MyApp.ViewModels
                         .ToList();
 
                     nameField.Items = new ObservableCollection<string>(values);
-
-                    foreach (var val in values)
-                    {
-                        if (!ItemNames.Contains(val))
-                            ItemNames.Add(val);
-                    }
-
-                    // Удаляем старый обработчик, чтобы избежать ненужных вызовов
                     nameField.OnNameChanged = null;
                 }
 
-                // 4. Сначала добавляем поле Name
+                // 4. Добавляем поле Name
                 if (nameField != null)
                     InventoryFields.Add(nameField);
 
-                // 5. Добавляем остальные поля — видимость обновим по Name
+                // 5. Добавляем остальные поля
                 foreach (var field in otherFields)
                 {
-                    field.UpdateVisibility(nameField?.Value);
+                    // Для ReadOnly полей сразу устанавливаем видимость false
+                    if (field.IsReadOnly)
+                    {
+                        field.IsVisible = false;
+                    }
+                    else
+                    {
+                        field.UpdateVisibility(nameField?.Value);
+                    }
                     InventoryFields.Add(field);
                 }
             }
         }
+
 
 
         private Dictionary<string, string> ParseQrData(string qrText)

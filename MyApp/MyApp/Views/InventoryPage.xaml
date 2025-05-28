@@ -60,41 +60,50 @@
 
                                 <!-- Только для чтения -->
                                 <StackLayout IsVisible="{Binding IsReadOnly}">
-                                    <Label Text="{Binding Label}" FontAttributes="Bold" />
+                                    <Label FontAttributes="Bold">
+                                        <Label.FormattedText>
+                                            <FormattedString>
+                                                <Span Text="{Binding Label}" />
+                                                <Span Text=": " />
+                                                <Span Text="{Binding Value}" />
+                                            </FormattedString>
+                                        </Label.FormattedText>
+                                    </Label>
                                 </StackLayout>
 
-                                <!-- Поле с автодополнением -->
+                                <!-- Поле с автодополнением (только для поля Name) -->
                                 <StackLayout IsVisible="{Binding IsDropdown}">
-                                    <Entry Placeholder="Введите наименование"
-                                           Text="{Binding Value, Mode=TwoWay}"
-                                           IsEnabled="{Binding IsReadOnly, Converter={StaticResource InverseBooleanConverter}}"
-                                           TextChanged="OnEntryTextChanged"
-                                           Focused="OnEntryFocused"
-                                           Unfocused="OnNameEntryUnfocused" />
-
-                                    <ListView x:Name="dropdownList"
-                                              ItemsSource="{Binding Suggestions}"
-                                              IsVisible="{Binding SuggestionsVisible}"
-                                              HeightRequest="{Binding SuggestionsHeight}"
-                                              BackgroundColor="White"
-                                              Margin="0, -10, 0, 10"
-                                              SelectionMode="Single"
-                                              ItemSelected="ItemSelected">
-                                        <ListView.ItemTemplate>
-                                            <DataTemplate>
-                                                <ViewCell>
-                                                    <Label Text="{Binding .}" Padding="10,5"/>
-                                                </ViewCell>
-                                            </DataTemplate>
-                                        </ListView.ItemTemplate>
-                                    </ListView>
+                                    <StackLayout IsVisible="{Binding IsReadOnly, Converter={StaticResource InverseBooleanConverter}}">
+                                        <Entry Placeholder="Введите наименование"
+                                               Text="{Binding Value, Mode=TwoWay}"
+                                               TextChanged="OnEntryTextChanged"
+                                               Focused="OnEntryFocused"
+                                               Unfocused="OnNameEntryUnfocused" />
+                                        <ListView x:Name="dropdownList"
+                                                  ItemsSource="{Binding Suggestions}"
+                                                  IsVisible="{Binding SuggestionsVisible}"
+                                                  HeightRequest="{Binding SuggestionsHeight}"
+                                                  BackgroundColor="White"
+                                                  Margin="0, -10, 0, 10"
+                                                  SelectionMode="Single"
+                                                  ItemSelected="ItemSelected">
+                                            <ListView.ItemTemplate>
+                                                <DataTemplate>
+                                                    <ViewCell>
+                                                        <Label Text="{Binding .}" Padding="10,5"/>
+                                                    </ViewCell>
+                                                </DataTemplate>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
+                                    </StackLayout>
                                 </StackLayout>
 
-                                <!-- Обычное поле ввода (если не Name и не ReadOnly) -->
+                                <!-- Обычное поле ввода (для полей с модификатором W) -->
                                 <StackLayout IsVisible="{Binding IsDropdown, Converter={StaticResource InverseBooleanConverter}}">
-                                    <Entry Text="{Binding Value, Mode=TwoWay}"
-                                           Placeholder="{Binding Label}"
-                                           IsEnabled="{Binding IsReadOnly, Converter={StaticResource InverseBooleanConverter}}" />
+                                    <StackLayout IsVisible="{Binding IsReadOnly, Converter={StaticResource InverseBooleanConverter}}">
+                                        <Entry Text="{Binding Value, Mode=TwoWay}"
+                                               Placeholder="{Binding Label}" />
+                                    </StackLayout>
                                 </StackLayout>
                             </StackLayout>
                         </DataTemplate>
