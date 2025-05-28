@@ -1,6 +1,7 @@
 ﻿using MyApp.Items;
 using SQLite;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
@@ -53,7 +54,6 @@ namespace MyApp.Services
                 throw;
             }
         }
-
         public static async Task<User> GetCurrentUser()
         {
             try
@@ -66,7 +66,6 @@ namespace MyApp.Services
                 return null;
             }
         }
-
         public static async Task ClearUser()
         {
             try
@@ -78,6 +77,39 @@ namespace MyApp.Services
             {
                 Debug.WriteLine($"Clear user failed: {ex.Message}");
                 throw;
+            }
+        }
+
+        public static async Task DeleteItemsForFormAsync(string sheetName, string formTitle)
+        {
+            await _database.ExecuteAsync("DELETE FROM InventoryItem WHERE SheetName = ? AND FormType = ?", sheetName, formTitle);
+        }
+        public static async Task SaveItemsBatchAsync(List<InventoryItem> items)
+        {
+            try
+            {
+                var s = await LocalDbService.Database.QueryAsync<InventoryItem>("select * from InventoryItem");
+                await _database.InsertAllAsync(items);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Insert items failed: {ex.Message}");
+                throw;
+            }
+        }
+
+        public static async Task<List<InventoryItem>> GetEntriesAsync(string sheetName)
+        {
+            try
+            {
+                return await _database.Table<InventoryItem>()
+                    .Where(e => e.SheetName == sheetName)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Get entries failed: {ex.Message}");
+                return new List<InventoryItem>();
             }
         }
     }

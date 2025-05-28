@@ -1,22 +1,18 @@
 ﻿<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MyApp.ViewModels"
-             
              xmlns:converters="clr-namespace:MyApp.Converters"
-             
              xmlns:zxing="clr-namespace:ZXing.Net.Mobile.Forms;assembly=ZXing.Net.Mobile.Forms"
              xmlns:xct="http://xamarin.com/schemas/2020/toolkit"
-             
              x:Class="MyApp.Views.InventoryPage"
              Title="Инвентаризация">
-    
+
     <ContentPage.Resources>
         <ResourceDictionary>
             <converters:InverseBooleanConverter x:Key="InverseBoolConverter" />
         </ResourceDictionary>
     </ContentPage.Resources>
 
-    <!-- Кнопка в правом верхнем углу -->
     <ContentPage.ToolbarItems>
         <ToolbarItem IconImageSource="qr_icon.png"
                      Command="{Binding ScanQRCommand}"
@@ -26,15 +22,22 @@
     </ContentPage.ToolbarItems>
 
     <AbsoluteLayout>
-        <!-- Основной интерфейс формы -->
         <ScrollView x:Name="MainContent"
                     AbsoluteLayout.LayoutBounds="0,0,1,1"
                     AbsoluteLayout.LayoutFlags="All">
             <StackLayout Padding="20">
+                <!-- Выбор помещения -->
                 <Picker Title="Помещения"
                         ItemsSource="{Binding SheetNames}"
                         SelectedItem="{Binding SelectedSheet}" 
                         IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}" />
+
+                <!-- Выбор формы ИНВ -->
+                <Picker Title="Форма инвентаризации"
+                        ItemsSource="{Binding FormTypes}"
+                        SelectedItem="{Binding SelectedFormType}"
+                        IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}"
+                        />
 
                 <!-- Индикатор загрузки -->
                 <ActivityIndicator 
@@ -53,16 +56,14 @@
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
                             <StackLayout Margin="0,5">
-                                <!-- Если это поле-наименование -->
+                                <!-- Поля с автодополнением -->
                                 <StackLayout IsVisible="{Binding IsDropdown}">
-                                    <!-- Entry с автодополнением -->
                                     <Entry Placeholder="Введите наименование"
                                            Text="{Binding Value, Mode=TwoWay}"
                                            TextChanged="OnEntryTextChanged"
                                            Focused="OnEntryFocused"
                                            Unfocused="OnEntryUnfocused" />
 
-                                    <!-- Список подсказок -->
                                     <ListView x:Name="dropdownList"
                                               ItemsSource="{Binding Suggestions}"
                                               IsVisible="{Binding SuggestionsVisible}"
@@ -83,7 +84,7 @@
 
                                 <!-- Обычные поля -->
                                 <StackLayout IsVisible="{Binding IsDropdown, Converter={StaticResource InverseBoolConverter}}">
-                                    <Entry Text="{Binding Value}"
+                                    <Entry Text="{Binding Value, Mode=TwoWay}"
                                            Placeholder="{Binding Label}" />
                                 </StackLayout>
                             </StackLayout>
@@ -91,27 +92,26 @@
                     </BindableLayout.ItemTemplate>
                 </StackLayout>
 
-
-                <!-- Кнопки для сканирования и далее -->
+                <!-- Кнопки управления -->
                 <StackLayout Orientation="Horizontal" Spacing="10">
-                    <Button Text="К заполнению" Command="{Binding OpenCompletedFormsCommand}" HorizontalOptions="FillAndExpand"/>
-                    <Button Text="Далее" Command="{Binding NextItemCommand}" HorizontalOptions="FillAndExpand"/>
+                    <Button Text="К заполнению" 
+                            Command="{Binding OpenCompletedFormsCommand}" 
+                            HorizontalOptions="FillAndExpand"/>
+                    <Button Text="Далее" 
+                            Command="{Binding NextItemCommand}" 
+                            HorizontalOptions="FillAndExpand"/>
                 </StackLayout>
 
-                <!-- Кнопка завершить -->
                 <Button Text="Завершить" Command="{Binding FinishCommand}" />
             </StackLayout>
         </ScrollView>
 
-        <!-- Сканер QR-кодов поверх интерфейса -->
+        <!-- Сканер QR-кодов -->
         <zxing:ZXingScannerView x:Name="scannerView"
                                 IsScanning="False"
                                 IsVisible="False"
-                                
                                 AutomationId="zxingScannerView"
                                 AbsoluteLayout.LayoutBounds="0,0,1,1"
                                 AbsoluteLayout.LayoutFlags="All" />
-        <!-- Сканер  OnScanResult="Handle_OnScanResult" -->
-
     </AbsoluteLayout>
 </ContentPage>

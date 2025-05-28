@@ -29,7 +29,20 @@ namespace MyApp.Items
 
         public string Label { get; set; }
 
-        public bool IsNameField => Label?.IndexOf("наименование", StringComparison.OrdinalIgnoreCase) >= 0;
+        private bool _isNameField;
+        public bool IsNameField
+        {
+            get => _isNameField;
+            set
+            {
+                if (_isNameField != value)
+                {
+                    _isNameField = value;
+                    OnPropertyChanged(nameof(IsNameField));
+                    OnPropertyChanged(nameof(IsDropdown));
+                }
+            }
+        }
         public bool IsDropdown => IsNameField;
 
         private ObservableCollection<string> _items = new ObservableCollection<string>();

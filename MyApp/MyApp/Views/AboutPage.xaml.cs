@@ -13,10 +13,5 @@ namespace MyApp.Views
         {
             InitializeComponent();
         }
-
-        //protected override void OnAppearing()
-        //{
-        //    var s = LocalDbService.Database.QueryAsync<User>("select * from User").Result;
-        //}
     }
 }
