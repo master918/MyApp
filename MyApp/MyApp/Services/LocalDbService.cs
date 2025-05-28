@@ -98,12 +98,12 @@ namespace MyApp.Services
             }
         }
 
-        public static async Task<List<InventoryItem>> GetEntriesAsync(string sheetName)
+        public static async Task<List<InventoryItem>> GetEntriesAsync(string sheetName, string SelectedFormType)
         {
             try
             {
                 return await _database.Table<InventoryItem>()
-                    .Where(e => e.SheetName == sheetName)
+                    .Where(e => e.SheetName == sheetName && e.FormType == SelectedFormType)
                     .ToListAsync();
             }
             catch (Exception ex)

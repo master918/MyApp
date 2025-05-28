@@ -19,6 +19,9 @@ namespace MyApp.Items
     public class InventoryField : INotifyPropertyChanged
     {
         public Action<string> OnNameChanged;
+
+        public int? ColumnIndex { get; set; }
+
         private string _value;
         public string Value
         {

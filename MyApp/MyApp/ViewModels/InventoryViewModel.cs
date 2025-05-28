@@ -9,6 +9,7 @@ using Xamarin.Essentials;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using ZXing.Mobile;
+using System.Diagnostics;
 
 namespace MyApp.ViewModels
 {
@@ -123,7 +124,7 @@ namespace MyApp.ViewModels
             {
                 IsLoading = true;
 
-                var spreadsheetId = Preferences.Get("SpreadsheetId", null);
+                 var spreadsheetId = Preferences.Get("SpreadsheetId", null);
                 var sheetName = SelectedSheet;
                 var structureRange = $"{sheetName}!1:5";
                 var serviceData = await _googleService.GetRangeValuesAsync(spreadsheetId, structureRange);
@@ -144,6 +145,7 @@ namespace MyApp.ViewModels
                 var labelRow2 = serviceData[2];
                 var accessRow = serviceData[3];
                 var columnNumberRow = serviceData[4];
+
 
                 int col = 0;
                 while (col < formHeaderRow.Count)
@@ -167,7 +169,7 @@ namespace MyApp.ViewModels
                     while (col < columnNumberRow.Count)
                     {
                         var columnNumberStr = columnNumberRow[col]?.ToString()?.Trim();
-                        if (!int.TryParse(columnNumberStr, out int _))
+                        if (!int.TryParse(columnNumberStr, out int columnNumber))
                             break;
 
                         if (col >= accessRow.Count)
@@ -201,7 +203,8 @@ namespace MyApp.ViewModels
                             Label = label,
                             IsNameField = access == "NAME",
                             IsReadOnly = access == "R",
-                            IsVisible = access == "NAME" 
+                            IsVisible = access == "NAME",
+                            ColumnIndex = columnNumber
                         });
 
                         col++;
@@ -222,49 +225,64 @@ namespace MyApp.ViewModels
             }
             finally
             {
+                var s = await LocalDbService.Database.QueryAsync<InventoryItem>("select * from InventoryItem");
                 IsLoading = false;
+
             }
         }
         public async Task LoadDataAsync()
         {
             try
             {
+                // Устанавливаем флаг загрузки для отображения индикатора
                 IsLoading = true;
 
+                // Получаем ID таблицы из настроек и название текущего листа
                 var spreadsheetId = Preferences.Get("SpreadsheetId", null);
                 var sheetName = SelectedSheet;
+
+                // Определяем диапазон данных (начиная с 6 строки до 1000)
                 var dataStartRow = 6;
                 var dataRange = $"{sheetName}!{dataStartRow}:1000";
+
+                // Загружаем данные из Google Sheets
                 var sheetData = await _googleService.GetRangeValuesAsync(spreadsheetId, dataRange);
 
+                // Обрабатываем данные для каждой формы инвентаризации
                 foreach (var formType in FormTypes)
                 {
+                    // Пропускаем, если для формы нет полей
                     if (!FormFields.TryGetValue(formType, out var fields)) continue;
 
-                    var writeColumns = new List<(int ColumnIndex, int ColumnNumber)>();
-                    var readColumns = new List<(int ColumnIndex, int ColumnNumber)>();
-                    int? nameColumnIndex = null;
+                    // Списки для хранения индексов колонок:
+                    var writeColumns = new List<(int ColumnIndex, int ColumnNumber)>(); // Для записи (W)
+                    var readColumns = new List<(int ColumnIndex, int ColumnNumber)>();  // Для чтения (R)
+                    int? nameColumnIndex = null; // Индекс колонки с названием (NAME)
 
+                    // Определяем индексы колонок для каждого типа поля
                     for (int i = 0; i < fields.Count; i++)
                     {
                         var field = fields[i];
                         if (field.IsNameField)
-                            nameColumnIndex = i;
-                        else
+                            nameColumnIndex = i; // Запоминаем индекс колонки Name
+                        else if (field.ColumnIndex.HasValue)
                         {
-                            var columnNumber = i + 1;
-                            writeColumns.Add((i, columnNumber));
-                            readColumns.Add((i, columnNumber));
+                            // Добавляем индексы для колонок записи и чтения
+                            writeColumns.Add((i, field.ColumnIndex.Value));
+                            readColumns.Add((i, field.ColumnIndex.Value));
                         }
                     }
 
-                    var itemsToSave = new List<InventoryItem>();
+                    var itemsToSave = new List<InventoryItem>(); // Список для сохранения в БД
 
+                    // Обрабатываем каждую строку данных из таблицы
                     foreach (var dataRow in sheetData)
                     {
+                        // Пропускаем пустые строки
                         if (dataRow.All(cell => string.IsNullOrWhiteSpace(cell?.ToString())))
                             continue;
 
+                        // Создаем новый элемент инвентаризации
                         var item = new InventoryItem
                         {
                             SheetName = sheetName,
@@ -273,6 +291,7 @@ namespace MyApp.ViewModels
                             ReadColumnValues = new Dictionary<int, string>()
                         };
 
+                        // Заполняем название (если есть колонка Name и значение)
                         if (nameColumnIndex.HasValue && nameColumnIndex.Value < dataRow.Count)
                         {
                             var nameValue = dataRow[nameColumnIndex.Value]?.ToString()?.Trim();
@@ -280,16 +299,22 @@ namespace MyApp.ViewModels
                                 item.Name = nameValue;
                         }
 
-                        foreach (var (colIndex, colNumber) in writeColumns)
+                        // Заполняем значения для записи (W)
+                        foreach (var (fieldIndex, columnIndex) in writeColumns)
                         {
-                            if (colIndex >= dataRow.Count || colNumber <= 0)
+                            // Преобразуем номер колонки в индекс (нумерация с 1)
+                            int realCellIndex = columnIndex - 1;
+
+                            // Проверяем, что индекс в пределах строки
+                            if (realCellIndex >= dataRow.Count || columnIndex <= 0)
                                 continue;
 
-                            var value = dataRow[colIndex]?.ToString()?.Trim();
+                            var value = dataRow[realCellIndex]?.ToString()?.Trim();
                             if (!string.IsNullOrWhiteSpace(value))
-                                item.WriteColumnValues[colNumber] = value;
+                                item.WriteColumnValues[columnIndex] = value;
                         }
 
+                        // Заполняем значения для чтения (R)
                         foreach (var (colIndex, colNumber) in readColumns)
                         {
                             if (colIndex >= dataRow.Count || colNumber <= 0)
@@ -303,19 +328,25 @@ namespace MyApp.ViewModels
                         itemsToSave.Add(item);
                     }
 
+                    // Сохраняем данные в локальную БД
                     if (itemsToSave.Count > 0)
                     {
+                        // Сначала удаляем старые данные для этой формы
                         await LocalDbService.DeleteItemsForFormAsync(sheetName, formType);
+                        // Затем сохраняем новые данные
                         await LocalDbService.SaveItemsBatchAsync(itemsToSave);
                     }
                 }
             }
             catch (Exception ex)
             {
+                // Обработка ошибок с показом сообщения пользователю
                 await Application.Current.MainPage.DisplayAlert("Ошибка", $"Ошибка при загрузке данных: {ex.Message}", "OK");
             }
             finally
             {
+                var s = await LocalDbService.Database.QueryAsync<InventoryItem>("select * from InventoryItem");
+                // В любом случае снимаем флаг загрузки
                 IsLoading = false;
             }
         }
@@ -336,15 +367,15 @@ namespace MyApp.ViewModels
                 // 1. Получаем поле Name
                 var nameField = fields.FirstOrDefault(f => f.IsNameField);
 
-                // 2. Получаем ВСЕ поля кроме Name
+                // 2. Получаем все поля кроме Name
                 var otherFields = fields
-                    .Where(f => !f.IsNameField) // исключаем только Name поле
+                    .Where(f => !f.IsNameField)
                     .ToList();
 
-                // 3. Загружаем список значений для автодополнения (как было раньше)
+                // 3. Загружаем список значений для автодополнения
                 if (nameField != null)
                 {
-                    var entries = await LocalDbService.GetEntriesAsync(SelectedSheet);
+                    var entries = await LocalDbService.GetEntriesAsync(SelectedSheet, SelectedFormType);
                     var values = entries
                         .Select(e => e.Name)
                         .Where(n => !string.IsNullOrWhiteSpace(n))
@@ -352,7 +383,23 @@ namespace MyApp.ViewModels
                         .ToList();
 
                     nameField.Items = new ObservableCollection<string>(values);
-                    nameField.OnNameChanged = null;
+
+                    // Добавляем обработчик изменения значения Name
+                    nameField.OnNameChanged = async (nameValue) =>
+                    {
+                        if (!string.IsNullOrWhiteSpace(nameValue))
+                        {
+                            await LoadFieldValuesFromDb(nameValue);
+                        }
+                        else
+                        {
+                            // Очищаем значения полей, если Name пустой
+                            foreach (var field in InventoryFields.Where(f => !f.IsNameField))
+                            {
+                                field.Value = string.Empty;
+                            }
+                        }
+                    };
                 }
 
                 // 4. Добавляем поле Name
@@ -362,17 +409,33 @@ namespace MyApp.ViewModels
                 // 5. Добавляем остальные поля
                 foreach (var field in otherFields)
                 {
-                    // Для ReadOnly полей сразу устанавливаем видимость false
-                    if (field.IsReadOnly)
-                    {
-                        field.IsVisible = false;
-                    }
-                    else
-                    {
-                        field.UpdateVisibility(nameField?.Value);
-                    }
+                    field.UpdateVisibility(nameField?.Value);
                     InventoryFields.Add(field);
                 }
+            }
+        }
+        private async Task LoadFieldValuesFromDb(string nameValue)
+        {
+            try
+            {
+                var entries = await LocalDbService.GetEntriesAsync(SelectedSheet, SelectedFormType);
+                var item = entries.FirstOrDefault(e =>
+                    e.Name?.Equals(nameValue, StringComparison.OrdinalIgnoreCase) ?? false);
+
+                if (item != null)
+                {
+                    foreach (var field in InventoryFields.Where(f => !f.IsNameField))
+                    {
+                        if (field.ColumnIndex is int columnIndex && item.WriteColumnValues.TryGetValue(columnIndex, out var value))
+                        {
+                            field.Value = value;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading field values: {ex.Message}");
             }
         }
 

@@ -74,8 +74,8 @@
                                 <!-- Поле с автодополнением (только для поля Name) -->
                                 <StackLayout IsVisible="{Binding IsDropdown}">
                                     <StackLayout IsVisible="{Binding IsReadOnly, Converter={StaticResource InverseBooleanConverter}}">
-                                        <Entry Placeholder="Введите наименование"
-                                               Text="{Binding Value, Mode=TwoWay}"
+                                        <Label Text="{Binding Label}" FontAttributes="Bold" />
+                                        <Entry Text="{Binding Value, Mode=TwoWay}"
                                                TextChanged="OnEntryTextChanged"
                                                Focused="OnEntryFocused"
                                                Unfocused="OnNameEntryUnfocused" />
@@ -101,8 +101,8 @@
                                 <!-- Обычное поле ввода (для полей с модификатором W) -->
                                 <StackLayout IsVisible="{Binding IsDropdown, Converter={StaticResource InverseBooleanConverter}}">
                                     <StackLayout IsVisible="{Binding IsReadOnly, Converter={StaticResource InverseBooleanConverter}}">
-                                        <Entry Text="{Binding Value, Mode=TwoWay}"
-                                               Placeholder="{Binding Label}" />
+                                        <Label Text="{Binding Label}" FontAttributes="Bold" />
+                                        <Entry Text="{Binding Value, Mode=TwoWay}" />
                                     </StackLayout>
                                 </StackLayout>
                             </StackLayout>
