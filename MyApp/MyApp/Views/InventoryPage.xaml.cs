@@ -1,5 +1,6 @@
 ﻿using MyApp.Items;
 using MyApp.ViewModels;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Xamarin.Forms;
@@ -13,11 +14,19 @@ namespace MyApp.Views
     {
         public InventoryPage()
         {
-            InitializeComponent();
-            BindingContext = new InventoryViewModel();
+            try
+            {
+                InitializeComponent();
+                BindingContext = new InventoryViewModel();
+            }
+            catch (Exception ex)
+            {
+                // Логируем ошибку или показываем
+                System.Diagnostics.Debug.WriteLine($"Error in constructor: {ex}");
+            }
         }
 
-        protected override async void OnAppearing()
+        protected override void OnAppearing()
         {
             base.OnAppearing();
 

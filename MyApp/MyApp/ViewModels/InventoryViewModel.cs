@@ -21,6 +21,7 @@ namespace MyApp.ViewModels
         public Command OpenCompletedFormsCommand { get; }
         public Command FinishCommand { get; }
         public Command ScanQRCommand { get; }
+        public Command LoadSheetNamesCommand { get; }
 
         private int _currentFormNumber = 1;
         public int CurrentFormNumber
@@ -33,13 +34,29 @@ namespace MyApp.ViewModels
         public ObservableCollection<InventoryField> InventoryFields { get; } = new ObservableCollection<InventoryField>();//Поля форм
         public ObservableCollection<CompletedForm> CompletedForms { get; } = new ObservableCollection<CompletedForm>();
         public ObservableCollection<string> ItemNames { get; } = new ObservableCollection<string>();
+        public ObservableCollection<string> FormTypes { get; } = new ObservableCollection<string>();
+
+        private Dictionary<string, List<InventoryField>> FormFields { get; set; } = new Dictionary<string, List<InventoryField>>();
+
+        private string _selectedFormType;
+        public string SelectedFormType
+        {
+            get => _selectedFormType;
+            set
+            {
+                if (SetProperty(ref _selectedFormType, value))
+                {
+                    _ = UpdateInventoryFieldsForSelectedForm();
+                }
+            }
+        }
 
         public string SelectedSheet
         {
             get => _selectedSheet;
             set
             {
-                if (SetProperty(ref _selectedSheet, value))
+                if (SetProperty(ref _selectedSheet, value)&& _selectedSheet != null)
                 {
                     // Загружаем структуру при смене выбранного листа
                     _ = LoadSheetStructureAsync();
@@ -61,9 +78,9 @@ namespace MyApp.ViewModels
             FinishCommand = new Command(async () => await FinishAsync());
             ScanQRCommand = new Command(async () => MessagingCenter.Send(this, "StartScanner"));
             OpenCompletedFormsCommand = new Command(OpenCompletedForms);
-        }
+        }             
 
-        public Command LoadSheetNamesCommand { get; }
+
 
         private async Task LoadSheetNamesAsync()
         {
@@ -104,59 +121,167 @@ namespace MyApp.ViewModels
             {
                 IsLoading = true;
 
-                var service = new GoogleService();
-                var currentSpreadsheetId = Preferences.Get("SpreadsheetId", null);
+                var spreadsheetId = Preferences.Get("SpreadsheetId", null);
                 var sheetName = SelectedSheet;
-
-                var range = $"{sheetName}!A1:Z2"; // Считываем строки с метками и заголовками
-                var serviceData = await service.GetRangeValuesAsync(currentSpreadsheetId, range);
+                var structureRange = $"{sheetName}!1:5";
+                var serviceData = await _googleService.GetRangeValuesAsync(spreadsheetId, structureRange);
 
                 InventoryFields.Clear();
+                FormTypes.Clear();
+                FormFields.Clear();
+                ItemNames.Clear();
 
-                if (serviceData.Count >= 2)
+                if (serviceData.Count < 5)
                 {
-                    var firstRow = serviceData[0]; // строки с "!" — пропускаемые поля
-                    var secondRow = serviceData[1]; // заголовки полей
+                    await Application.Current.MainPage.DisplayAlert("Ошибка", "Недостаточно строк в таблице для структуры форм", "OK");
+                    return;
+                }
 
-                    int nameFieldIndex = -1;
+                var formHeaderRow = serviceData[0];
+                var labelRow1 = serviceData[1];
+                var labelRow2 = serviceData[2];
+                var accessRow = serviceData[3];
+                var columnNumberRow = serviceData[4];
 
-                    for (int i = 0; i < secondRow.Count; i++)
+                int col = 0;
+                while (col < formHeaderRow.Count)
+                {
+                    var formTitle = formHeaderRow[col]?.ToString()?.Trim();
+                    if (string.IsNullOrWhiteSpace(formTitle) || !formTitle.StartsWith("ИНВ", StringComparison.OrdinalIgnoreCase))
                     {
-                        var skip = i < firstRow.Count && firstRow[i]?.ToString().Trim() == "!";
-                        var title = secondRow[i]?.ToString();
-
-                        if (!skip && !string.IsNullOrWhiteSpace(title))
-                        {
-                            var field = new InventoryField { Label = title };
-
-                            // Определим, является ли это поле "Наименование"
-                            if (field.IsNameField)
-                            {
-                                nameFieldIndex = i;
-                            }
-
-                            InventoryFields.Add(field);
-                        }
+                        col++;
+                        continue;
                     }
 
-                    // Загружаем значения для поля "Наименование", если индекс найден
-                    if (nameFieldIndex >= 0)
+                    // Новая форма найдена
+                    if (!FormTypes.Contains(formTitle))
+                        FormTypes.Add(formTitle);
+
+                    if (!FormFields.ContainsKey(formTitle))
+                        FormFields[formTitle] = new List<InventoryField>();
+
+                    var fieldsForForm = FormFields[formTitle];
+                    int? nameColumnIndex = null;
+                    var writeColumns = new List<(int ColumnIndex, int ColumnNumber)>();
+                    var readColumns = new List<(int ColumnIndex, int ColumnNumber)>();
+                    string inheritedLabelPart1 = null;
+
+                    // Считываем поля формы, пока в 5 строке (columnNumberRow) есть номер столбца
+                    while (col < columnNumberRow.Count)
                     {
-                        var nameRange = $"{sheetName}!{(char)('A' + nameFieldIndex)}3:{(char)('A' + nameFieldIndex)}";
-                        var nameValues = await service.GetRangeValuesAsync(currentSpreadsheetId, nameRange);
+                        var columnNumberStr = columnNumberRow[col]?.ToString()?.Trim();
+                        if (!int.TryParse(columnNumberStr, out int columnNumber))
+                            break; // конец текущей формы
 
-                        var nameField = InventoryFields.FirstOrDefault(f => f.IsNameField);
-                        if (nameField != null)
+                        if (col >= accessRow.Count)
                         {
-                            nameField.Items.Clear();
-
-                            foreach (var row in nameValues)
-                            {
-                                if (row.Count > 0 && !string.IsNullOrWhiteSpace(row[0]?.ToString()))
-                                    nameField.Items.Add(row[0].ToString());
-                            }
+                            col++;
+                            continue;
                         }
+
+                        var access = accessRow[col]?.ToString()?.Trim().ToUpper();
+                        bool isValidField = access == "NAME" || access == "W" || access == "R";
+                        if (!isValidField)
+                        {
+                            col++;
+                            continue;
+                        }
+
+                        var rawLabel1 = labelRow1[col]?.ToString()?.Trim();
+                        var rawLabel2 = labelRow2[col]?.ToString()?.Trim();
+
+                        if (!string.IsNullOrWhiteSpace(rawLabel1))
+                            inheritedLabelPart1 = rawLabel1;
+
+                        var label = $"{inheritedLabelPart1 ?? ""} {rawLabel2}".Trim();
+                        if (string.IsNullOrWhiteSpace(label))
+                        {
+                            col++;
+                            continue;
+                        }
+
+                        fieldsForForm.Add(new InventoryField
+                        {
+                            Label = label,
+                            IsNameField = access == "NAME"
+                        });
+
+                        if (access == "NAME")nameColumnIndex = col;
+                        else if (access == "W")writeColumns.Add((col, columnNumber));
+                        else if (access == "R")readColumns.Add((col, columnNumber));
+                        col++;
                     }
+
+                    // Загружаем данные для формы
+                    var dataStartRow = 6;
+                    var dataRange = $"{sheetName}!{dataStartRow}:1000";
+                    var sheetData = await _googleService.GetRangeValuesAsync(spreadsheetId, dataRange);
+
+                    var itemsToSave = new List<InventoryItem>();
+
+                    foreach (var dataRow in sheetData)
+                    {
+                        if (dataRow.All(cell => string.IsNullOrWhiteSpace(cell?.ToString())))
+                            continue;
+
+                        var item = new InventoryItem
+                        {
+                            SheetName = sheetName,
+                            FormType = formTitle,
+                            WriteColumnValues = new Dictionary<int, string>(),
+                            ReadColumnValues = new Dictionary<int, string>()
+                        };
+
+                        if (nameColumnIndex.HasValue && nameColumnIndex.Value < dataRow.Count)
+                        {
+                            var nameValue = dataRow[nameColumnIndex.Value]?.ToString()?.Trim();
+                            if (!string.IsNullOrWhiteSpace(nameValue))
+                                item.Name = nameValue;
+                        }
+
+                        if (nameColumnIndex.HasValue && nameColumnIndex.Value < dataRow.Count)
+                        {
+                            var nameValue = dataRow[nameColumnIndex.Value]?.ToString()?.Trim();
+                            if (!string.IsNullOrWhiteSpace(nameValue))
+                                item.Name = nameValue;
+                        }
+
+                        foreach (var (colIndex, colNumber) in writeColumns)
+                        {
+                            if (colIndex >= dataRow.Count || colNumber <= 0)
+                                continue;
+
+                            var value = dataRow[colIndex]?.ToString()?.Trim();
+                            if (!string.IsNullOrWhiteSpace(value))
+                                item.WriteColumnValues[colNumber] = value;
+                        }
+                        foreach (var (colIndex, colNumber) in readColumns)
+                        {
+                            if (colIndex >= dataRow.Count || colNumber <= 0)
+                                continue;
+
+                            var value = dataRow[colIndex]?.ToString()?.Trim();
+                            if (!string.IsNullOrWhiteSpace(value))
+                                item.ReadColumnValues[colNumber] = value;
+                        }
+
+                        itemsToSave.Add(item);
+                    }
+
+                    if (itemsToSave.Count > 0)
+                    {
+                        await LocalDbService.DeleteItemsForFormAsync(sheetName, formTitle);
+                        await LocalDbService.SaveItemsBatchAsync(itemsToSave);
+                    }
+                    var s = await LocalDbService.Database.QueryAsync<InventoryItem>("select * from InventoryItem");
+                }
+
+                if (FormTypes.Count > 0)
+                    SelectedFormType = FormTypes[0];
+
+                if (FormFields.Count == 0)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Внимание", "Не удалось обнаружить структуру формы на листе", "OK");
                 }
             }
             catch (Exception ex)
@@ -168,6 +293,36 @@ namespace MyApp.ViewModels
                 IsLoading = false;
             }
         }
+
+
+
+
+        private async Task UpdateInventoryFieldsForSelectedForm()
+        {
+            InventoryFields.Clear();
+
+            if (!string.IsNullOrEmpty(SelectedFormType) && FormFields.TryGetValue(SelectedFormType, out var fields))
+            {
+                foreach (var field in fields)
+                {
+                    if (field.IsNameField)
+                    {
+                        var entries = await LocalDbService.GetEntriesAsync(SelectedSheet);
+                        var values = entries.Select(e => e.Name).Distinct().ToList();
+                        field.Items = new ObservableCollection<string>(values);
+
+                        foreach (var val in values)
+                        {
+                            if (!ItemNames.Contains(val))
+                                ItemNames.Add(val);
+                        }
+                    }
+
+                    InventoryFields.Add(field);
+                }
+            }
+        }
+
 
         private Dictionary<string, string> ParseQrData(string qrText)
         {
@@ -223,7 +378,6 @@ namespace MyApp.ViewModels
                 await Application.Current.MainPage.DisplayAlert("Предупреждение", "Не удалось сопоставить поля QR-кода с формой", "OK");
             }
         }
-
 
         private async void OpenCompletedForms()
         {

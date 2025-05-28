@@ -1,4 +1,5 @@
-﻿using MyApp.Services;
+﻿using MyApp.Items;
+using MyApp.Services;
 using System;
 using System.ComponentModel;
 using Xamarin.Forms;
@@ -11,6 +12,6 @@ namespace MyApp.Views
         public AboutPage()
         {
             InitializeComponent();
-        }    
+        }
     }
 }

@@ -14,10 +14,20 @@ namespace MyApp
         public App()
         {
             InitializeComponent();
-            InitializeDefaultSettings();//Настройки по усолчанию при первом запуске после установки
-            SetMainPage();//Установка главной страницы
-            LoadFromDB();//Загрузка из БД если пользователь авторизован
+            InitializeDefaultSettings();
+
+            // Устанавливаем AppShell сразу
+            MainPage = new AppShell();
+
+            // Инициализация и навигация в фоне
+            Device.BeginInvokeOnMainThread(async () => await InitializeAppAsync());
         }
+
+        protected override void OnStart() { }
+
+        protected override void OnResume() { }
+
+        protected override void OnSleep() { }
 
         private void InitializeDefaultSettings()
         {
@@ -29,40 +39,23 @@ namespace MyApp
                 SecureStorage.Remove(CredentialsKey);
             }
         }
-        private void SetMainPage()
-        {
-            // Пока не знаем, что нужно показывать — ставим заглушку
-            MainPage = new AppShell();
 
-            // Навигация будет выполнена после полной инициализации
-            Device.BeginInvokeOnMainThread(async () => await CheckAndNavigateAsync());
-        }
-        private void LoadFromDB()
+        private async Task InitializeAppAsync()
         {
-            if (Preferences.ContainsKey("FirstRun") && Preferences.Get("IsLoggedIn", false))
+            try
             {
+                await LocalDbService.InitializeAsync();
 
+                // Навигация после инициализации
+                await NavigateAfterStartupAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"App initialization failed: {ex.Message}");
             }
         }
 
-
-        protected override async void OnStart()
-        {
-            await CheckAndNavigateAsync();
-
-        }
-
-        protected override async void OnResume()
-        {
-            await CheckAndNavigateAsync();
-        }
-
-        protected override void OnSleep()
-        {
-            // Здесь можно сохранять состояние приложения, если нужно
-        }
-
-        private async Task CheckAndNavigateAsync()
+        private async Task NavigateAfterStartupAsync()
         {
             try
             {
@@ -72,11 +65,11 @@ namespace MyApp
                 }
                 else if (Preferences.Get("IsLoggedIn", false))
                 {
-                    await Shell.Current.GoToAsync($"//{nameof(AboutPage)}");
+                    await Shell.Current.GoToAsync("//AboutPage");
                 }
                 else
                 {
-                    await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
+                    await Shell.Current.GoToAsync("//LoginPage");
                 }
             }
             catch (Exception ex)

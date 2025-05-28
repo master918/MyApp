@@ -67,8 +67,10 @@
             </Style>
         </ResourceDictionary>
     </Shell.Resources>
+    <ShellContent Route="StartupPage" ContentTemplate="{DataTemplate local:StartupPage}" FlyoutItemIsVisible="False" />
     <ShellContent Route="LoginPage" ContentTemplate="{DataTemplate local:LoginPage}" FlyoutItemIsVisible="False"/>
-    
+
+
     <FlyoutItem Title="About" Icon="icon_about.png">
         <ShellContent Route="AboutPage" ContentTemplate="{DataTemplate local:AboutPage}" />
     </FlyoutItem>
