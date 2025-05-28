@@ -10,8 +10,15 @@ using System.Threading.Tasks;
 
 namespace MyApp.Items
 {
+    using System;
+    using System.Collections.ObjectModel;
+    using System.Collections.Specialized;
+    using System.ComponentModel;
+    using System.Linq;
+
     public class InventoryField : INotifyPropertyChanged
     {
+        public Action<string> OnNameChanged;
         private string _value;
         public string Value
         {
@@ -23,6 +30,10 @@ namespace MyApp.Items
                     _value = value;
                     OnPropertyChanged(nameof(Value));
                     FilterSuggestions(_value);
+
+                    // Если это поле NAME, уведомим об изменении
+                    if (IsNameField)
+                        OnNameChanged?.Invoke(_value);
                 }
             }
         }
@@ -43,7 +54,48 @@ namespace MyApp.Items
                 }
             }
         }
+
         public bool IsDropdown => IsNameField;
+
+        private bool _isReadOnly;
+        public bool IsReadOnly
+        {
+            get => _isReadOnly;
+            set
+            {
+                if (_isReadOnly != value)
+                {
+                    _isReadOnly = value;
+                    OnPropertyChanged(nameof(IsReadOnly));
+                }
+            }
+        }
+
+        private bool _isVisible = true;
+        public bool IsVisible
+        {
+            get => _isVisible;
+            set
+            {
+                if (_isVisible != value)
+                {
+                    _isVisible = value;
+                    OnPropertyChanged(nameof(IsVisible));
+                }
+            }
+        }
+        public void UpdateVisibility(string nameValue)
+        {
+            // Поле Name всегда видно, остальные — только если Name не пустой
+            if (IsNameField)
+            {
+                IsVisible = true;
+            }
+            else
+            {
+                IsVisible = !string.IsNullOrWhiteSpace(nameValue);
+            }
+        }
 
         private ObservableCollection<string> _items = new ObservableCollection<string>();
         public ObservableCollection<string> Items
@@ -55,13 +107,14 @@ namespace MyApp.Items
                 {
                     _items = value;
                     OnPropertyChanged(nameof(Items));
-                    FilterSuggestions(Value); // обновим подсказки при изменении списка
+                    FilterSuggestions(Value);
                 }
             }
         }
 
         // --- Автодополнение ---
-        public int SuggestionItemHeight { get; set; } = 40; // Высота одного элемента
+        public int SuggestionItemHeight { get; set; } = 40;
+
         private bool _suggestionsVisible;
         public bool SuggestionsVisible
         {
@@ -108,7 +161,7 @@ namespace MyApp.Items
             }
 
             var filtered = Items
-                .Where(item => !string.IsNullOrEmpty(item)) // Фильтруем пустые значения
+                .Where(item => !string.IsNullOrEmpty(item))
                 .Where(item => item.IndexOf(input, StringComparison.OrdinalIgnoreCase) >= 0)
                 .Distinct()
                 .Take(5)
@@ -121,10 +174,6 @@ namespace MyApp.Items
             SuggestionsVisible = Suggestions.Any();
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        public void OnPropertyChanged(string name) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-
         public double SuggestionsHeight => SuggestionsVisible && Suggestions != null
                                         ? Suggestions.Count * SuggestionItemHeight
                                         : 0;
@@ -134,6 +183,8 @@ namespace MyApp.Items
             OnPropertyChanged(nameof(SuggestionsHeight));
         }
 
-
+        public event PropertyChangedEventHandler PropertyChanged;
+        public void OnPropertyChanged(string name) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }

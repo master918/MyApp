@@ -77,6 +77,20 @@ namespace MyApp.Views
             scannerView.IsScanning = true;
         }
 
+        private void OnNameEntryUnfocused(object sender, FocusEventArgs e)
+        {
+            if (sender is Entry entry && entry.BindingContext is InventoryField nameField && nameField.IsNameField)
+            {
+                // Скрыть подсказки
+                nameField.SuggestionsVisible = false;
+
+                // Обновить видимость других полей
+                if (BindingContext is InventoryViewModel vm)
+                {
+                    vm.UpdateFieldVisibility(nameField.Value);
+                }
+            }
+        }
         private void OnEntryFocused(object sender, FocusEventArgs e)
         {
             if (sender is Entry entry && entry.BindingContext is InventoryField field)
@@ -89,18 +103,6 @@ namespace MyApp.Views
             if (sender is Entry entry && entry.BindingContext is InventoryField field)
             {
                 field.FilterSuggestions(e.NewTextValue);
-            }
-        }
-        private void OnEntryUnfocused(object sender, FocusEventArgs e)
-        {
-            if (sender is Entry entry && entry.BindingContext is InventoryField field)
-            {
-                Device.BeginInvokeOnMainThread(async () =>
-                {
-                    await Task.Delay(200);
-                    field.SuggestionsVisible = false;
-                    field.OnPropertyChanged(nameof(field.SuggestionsVisible));
-                });
             }
         }
 

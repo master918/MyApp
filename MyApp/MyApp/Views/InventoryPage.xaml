@@ -55,14 +55,22 @@
                              IsVisible="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
-                            <StackLayout Margin="0,5">
-                                <!-- Поля с автодополнением -->
+                            <StackLayout Margin="0,5"
+                                         IsVisible="{Binding IsVisible}">
+
+                                <!-- Только для чтения -->
+                                <StackLayout IsVisible="{Binding IsReadOnly}">
+                                    <Label Text="{Binding Label}" FontAttributes="Bold" />
+                                </StackLayout>
+
+                                <!-- Поле с автодополнением -->
                                 <StackLayout IsVisible="{Binding IsDropdown}">
                                     <Entry Placeholder="Введите наименование"
                                            Text="{Binding Value, Mode=TwoWay}"
+                                           IsEnabled="{Binding IsReadOnly, Converter={StaticResource InverseBooleanConverter}}"
                                            TextChanged="OnEntryTextChanged"
                                            Focused="OnEntryFocused"
-                                           Unfocused="OnEntryUnfocused" />
+                                           Unfocused="OnNameEntryUnfocused" />
 
                                     <ListView x:Name="dropdownList"
                                               ItemsSource="{Binding Suggestions}"
@@ -82,10 +90,11 @@
                                     </ListView>
                                 </StackLayout>
 
-                                <!-- Обычные поля -->
-                                <StackLayout IsVisible="{Binding IsDropdown, Converter={StaticResource InverseBoolConverter}}">
+                                <!-- Обычное поле ввода (если не Name и не ReadOnly) -->
+                                <StackLayout IsVisible="{Binding IsDropdown, Converter={StaticResource InverseBooleanConverter}}">
                                     <Entry Text="{Binding Value, Mode=TwoWay}"
-                                           Placeholder="{Binding Label}" />
+                                           Placeholder="{Binding Label}"
+                                           IsEnabled="{Binding IsReadOnly, Converter={StaticResource InverseBooleanConverter}}" />
                                 </StackLayout>
                             </StackLayout>
                         </DataTemplate>

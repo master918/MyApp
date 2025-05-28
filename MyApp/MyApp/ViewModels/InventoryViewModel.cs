@@ -16,6 +16,18 @@ namespace MyApp.ViewModels
     {
         private readonly GoogleService _googleService = new GoogleService();
         private string _selectedSheet;
+        public string SelectedSheet
+        {
+            get => _selectedSheet;
+            set
+            {
+                if (SetProperty(ref _selectedSheet, value) && _selectedSheet != null)
+                {
+                    // Загружаем структуру при смене выбранного листа
+                    _ = LoadSheetStructureAndDataAsync();
+                }
+            }
+        }
 
         public Command NextItemCommand { get; }
         public Command OpenCompletedFormsCommand { get; }
@@ -51,19 +63,6 @@ namespace MyApp.ViewModels
             }
         }
 
-        public string SelectedSheet
-        {
-            get => _selectedSheet;
-            set
-            {
-                if (SetProperty(ref _selectedSheet, value)&& _selectedSheet != null)
-                {
-                    // Загружаем структуру при смене выбранного листа
-                    _ = LoadSheetStructureAsync();
-                }
-            }
-        }
-
         private bool _isLoading;
         public bool IsLoading
         {
@@ -79,8 +78,6 @@ namespace MyApp.ViewModels
             ScanQRCommand = new Command(async () => MessagingCenter.Send(this, "StartScanner"));
             OpenCompletedFormsCommand = new Command(OpenCompletedForms);
         }             
-
-
 
         private async Task LoadSheetNamesAsync()
         {
@@ -115,7 +112,12 @@ namespace MyApp.ViewModels
                 await Application.Current.MainPage.DisplayAlert("Ошибка", $"Не удалось загрузить список помещений: {ex.Message}", "OK");
             }
         }
-        public async Task LoadSheetStructureAsync()
+        private async Task LoadSheetStructureAndDataAsync()
+        {
+            await LoadStructureAsync();
+            await LoadDataAsync();
+        }
+        public async Task LoadStructureAsync()
         {
             try
             {
@@ -153,7 +155,6 @@ namespace MyApp.ViewModels
                         continue;
                     }
 
-                    // Новая форма найдена
                     if (!FormTypes.Contains(formTitle))
                         FormTypes.Add(formTitle);
 
@@ -161,17 +162,13 @@ namespace MyApp.ViewModels
                         FormFields[formTitle] = new List<InventoryField>();
 
                     var fieldsForForm = FormFields[formTitle];
-                    int? nameColumnIndex = null;
-                    var writeColumns = new List<(int ColumnIndex, int ColumnNumber)>();
-                    var readColumns = new List<(int ColumnIndex, int ColumnNumber)>();
                     string inheritedLabelPart1 = null;
 
-                    // Считываем поля формы, пока в 5 строке (columnNumberRow) есть номер столбца
                     while (col < columnNumberRow.Count)
                     {
                         var columnNumberStr = columnNumberRow[col]?.ToString()?.Trim();
-                        if (!int.TryParse(columnNumberStr, out int columnNumber))
-                            break; // конец текущей формы
+                        if (!int.TryParse(columnNumberStr, out int _))
+                            break;
 
                         if (col >= accessRow.Count)
                         {
@@ -180,15 +177,14 @@ namespace MyApp.ViewModels
                         }
 
                         var access = accessRow[col]?.ToString()?.Trim().ToUpper();
-                        bool isValidField = access == "NAME" || access == "W" || access == "R";
-                        if (!isValidField)
+                        if (access != "NAME" && access != "W" && access != "R")
                         {
                             col++;
                             continue;
                         }
 
-                        var rawLabel1 = labelRow1[col]?.ToString()?.Trim();
-                        var rawLabel2 = labelRow2[col]?.ToString()?.Trim();
+                        var rawLabel1 = col < labelRow1.Count ? labelRow1[col]?.ToString()?.Trim() : null;
+                        var rawLabel2 = col < labelRow2.Count ? labelRow2[col]?.ToString()?.Trim() : null;
 
                         if (!string.IsNullOrWhiteSpace(rawLabel1))
                             inheritedLabelPart1 = rawLabel1;
@@ -203,77 +199,13 @@ namespace MyApp.ViewModels
                         fieldsForForm.Add(new InventoryField
                         {
                             Label = label,
-                            IsNameField = access == "NAME"
+                            IsNameField = access == "NAME",
+                            IsReadOnly = access == "R",
+                            IsVisible = access == "NAME" 
                         });
 
-                        if (access == "NAME")nameColumnIndex = col;
-                        else if (access == "W")writeColumns.Add((col, columnNumber));
-                        else if (access == "R")readColumns.Add((col, columnNumber));
                         col++;
                     }
-
-                    // Загружаем данные для формы
-                    var dataStartRow = 6;
-                    var dataRange = $"{sheetName}!{dataStartRow}:1000";
-                    var sheetData = await _googleService.GetRangeValuesAsync(spreadsheetId, dataRange);
-
-                    var itemsToSave = new List<InventoryItem>();
-
-                    foreach (var dataRow in sheetData)
-                    {
-                        if (dataRow.All(cell => string.IsNullOrWhiteSpace(cell?.ToString())))
-                            continue;
-
-                        var item = new InventoryItem
-                        {
-                            SheetName = sheetName,
-                            FormType = formTitle,
-                            WriteColumnValues = new Dictionary<int, string>(),
-                            ReadColumnValues = new Dictionary<int, string>()
-                        };
-
-                        if (nameColumnIndex.HasValue && nameColumnIndex.Value < dataRow.Count)
-                        {
-                            var nameValue = dataRow[nameColumnIndex.Value]?.ToString()?.Trim();
-                            if (!string.IsNullOrWhiteSpace(nameValue))
-                                item.Name = nameValue;
-                        }
-
-                        if (nameColumnIndex.HasValue && nameColumnIndex.Value < dataRow.Count)
-                        {
-                            var nameValue = dataRow[nameColumnIndex.Value]?.ToString()?.Trim();
-                            if (!string.IsNullOrWhiteSpace(nameValue))
-                                item.Name = nameValue;
-                        }
-
-                        foreach (var (colIndex, colNumber) in writeColumns)
-                        {
-                            if (colIndex >= dataRow.Count || colNumber <= 0)
-                                continue;
-
-                            var value = dataRow[colIndex]?.ToString()?.Trim();
-                            if (!string.IsNullOrWhiteSpace(value))
-                                item.WriteColumnValues[colNumber] = value;
-                        }
-                        foreach (var (colIndex, colNumber) in readColumns)
-                        {
-                            if (colIndex >= dataRow.Count || colNumber <= 0)
-                                continue;
-
-                            var value = dataRow[colIndex]?.ToString()?.Trim();
-                            if (!string.IsNullOrWhiteSpace(value))
-                                item.ReadColumnValues[colNumber] = value;
-                        }
-
-                        itemsToSave.Add(item);
-                    }
-
-                    if (itemsToSave.Count > 0)
-                    {
-                        await LocalDbService.DeleteItemsForFormAsync(sheetName, formTitle);
-                        await LocalDbService.SaveItemsBatchAsync(itemsToSave);
-                    }
-                    var s = await LocalDbService.Database.QueryAsync<InventoryItem>("select * from InventoryItem");
                 }
 
                 if (FormTypes.Count > 0)
@@ -293,31 +225,152 @@ namespace MyApp.ViewModels
                 IsLoading = false;
             }
         }
+        public async Task LoadDataAsync()
+        {
+            try
+            {
+                IsLoading = true;
 
+                var spreadsheetId = Preferences.Get("SpreadsheetId", null);
+                var sheetName = SelectedSheet;
+                var dataStartRow = 6;
+                var dataRange = $"{sheetName}!{dataStartRow}:1000";
+                var sheetData = await _googleService.GetRangeValuesAsync(spreadsheetId, dataRange);
 
+                foreach (var formType in FormTypes)
+                {
+                    if (!FormFields.TryGetValue(formType, out var fields)) continue;
 
+                    var writeColumns = new List<(int ColumnIndex, int ColumnNumber)>();
+                    var readColumns = new List<(int ColumnIndex, int ColumnNumber)>();
+                    int? nameColumnIndex = null;
 
+                    for (int i = 0; i < fields.Count; i++)
+                    {
+                        var field = fields[i];
+                        if (field.IsNameField)
+                            nameColumnIndex = i;
+                        else
+                        {
+                            var columnNumber = i + 1;
+                            writeColumns.Add((i, columnNumber));
+                            readColumns.Add((i, columnNumber));
+                        }
+                    }
+
+                    var itemsToSave = new List<InventoryItem>();
+
+                    foreach (var dataRow in sheetData)
+                    {
+                        if (dataRow.All(cell => string.IsNullOrWhiteSpace(cell?.ToString())))
+                            continue;
+
+                        var item = new InventoryItem
+                        {
+                            SheetName = sheetName,
+                            FormType = formType,
+                            WriteColumnValues = new Dictionary<int, string>(),
+                            ReadColumnValues = new Dictionary<int, string>()
+                        };
+
+                        if (nameColumnIndex.HasValue && nameColumnIndex.Value < dataRow.Count)
+                        {
+                            var nameValue = dataRow[nameColumnIndex.Value]?.ToString()?.Trim();
+                            if (!string.IsNullOrWhiteSpace(nameValue))
+                                item.Name = nameValue;
+                        }
+
+                        foreach (var (colIndex, colNumber) in writeColumns)
+                        {
+                            if (colIndex >= dataRow.Count || colNumber <= 0)
+                                continue;
+
+                            var value = dataRow[colIndex]?.ToString()?.Trim();
+                            if (!string.IsNullOrWhiteSpace(value))
+                                item.WriteColumnValues[colNumber] = value;
+                        }
+
+                        foreach (var (colIndex, colNumber) in readColumns)
+                        {
+                            if (colIndex >= dataRow.Count || colNumber <= 0)
+                                continue;
+
+                            var value = dataRow[colIndex]?.ToString()?.Trim();
+                            if (!string.IsNullOrWhiteSpace(value))
+                                item.ReadColumnValues[colNumber] = value;
+                        }
+
+                        itemsToSave.Add(item);
+                    }
+
+                    if (itemsToSave.Count > 0)
+                    {
+                        await LocalDbService.DeleteItemsForFormAsync(sheetName, formType);
+                        await LocalDbService.SaveItemsBatchAsync(itemsToSave);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                await Application.Current.MainPage.DisplayAlert("Ошибка", $"Ошибка при загрузке данных: {ex.Message}", "OK");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        public void UpdateFieldVisibility(string nameValue)
+        {
+            foreach (var field in InventoryFields)
+            {
+                field.UpdateVisibility(nameValue);
+            }
+        }
         private async Task UpdateInventoryFieldsForSelectedForm()
         {
             InventoryFields.Clear();
 
             if (!string.IsNullOrEmpty(SelectedFormType) && FormFields.TryGetValue(SelectedFormType, out var fields))
             {
-                foreach (var field in fields)
-                {
-                    if (field.IsNameField)
-                    {
-                        var entries = await LocalDbService.GetEntriesAsync(SelectedSheet);
-                        var values = entries.Select(e => e.Name).Distinct().ToList();
-                        field.Items = new ObservableCollection<string>(values);
+                // 1. Получаем поле Name
+                var nameField = fields.FirstOrDefault(f => f.IsNameField);
 
-                        foreach (var val in values)
-                        {
-                            if (!ItemNames.Contains(val))
-                                ItemNames.Add(val);
-                        }
+                // 2. Получаем все поля (ReadOnly и Write)
+                var otherFields = fields
+                    .Where(f => !f.IsNameField) // исключаем только Name поле
+                    .ToList();
+
+                // 3. Загружаем список значений из локальной БД для автодополнения
+                if (nameField != null)
+                {
+                    var entries = await LocalDbService.GetEntriesAsync(SelectedSheet);
+                    var values = entries
+                        .Select(e => e.Name)
+                        .Where(n => !string.IsNullOrWhiteSpace(n))
+                        .Distinct()
+                        .ToList();
+
+                    nameField.Items = new ObservableCollection<string>(values);
+
+                    foreach (var val in values)
+                    {
+                        if (!ItemNames.Contains(val))
+                            ItemNames.Add(val);
                     }
 
+                    // Удаляем старый обработчик, чтобы избежать ненужных вызовов
+                    nameField.OnNameChanged = null;
+                }
+
+                // 4. Сначала добавляем поле Name
+                if (nameField != null)
+                    InventoryFields.Add(nameField);
+
+                // 5. Добавляем остальные поля — видимость обновим по Name
+                foreach (var field in otherFields)
+                {
+                    field.UpdateVisibility(nameField?.Value);
                     InventoryFields.Add(field);
                 }
             }
