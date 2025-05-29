@@ -52,38 +52,12 @@ namespace MyApp.Views
                     await Task.Delay(200);
                 });
             }
-
-            MessagingCenter.Subscribe<InventoryViewModel>(this, "StartScanner", (sender) =>
-            {
-                StartScanner();
-            });
         }
 
         protected override void OnDisappearing()
         {
             base.OnDisappearing();
             MessagingCenter.Unsubscribe<InventoryViewModel>(this, "StartScanner");
-        }
-
-        //private void Handle_OnScanResult(ZXing.Result result)
-        //{
-        //    Device.BeginInvokeOnMainThread(async () =>
-        //    {
-        //        scannerView.IsScanning = false;
-        //        scannerView.IsVisible = false;
-
-        //        if (!string.IsNullOrWhiteSpace(result.Text))
-        //        {
-        //            var vm = BindingContext as InventoryViewModel;
-        //            await vm?.HandleScannedText(result.Text);
-        //        }
-        //    });
-        //}
-
-        private void StartScanner()
-        {
-            scannerView.IsVisible = true;
-            scannerView.IsScanning = true;
         }
 
         private void OnNameEntryUnfocused(object sender, FocusEventArgs e)

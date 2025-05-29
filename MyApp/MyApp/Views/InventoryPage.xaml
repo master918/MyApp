@@ -111,25 +111,11 @@
                 </StackLayout>
 
                 <!-- Кнопки управления -->
-                <StackLayout Orientation="Horizontal" Spacing="10">
-                    <Button Text="К заполнению" 
-                            Command="{Binding OpenCompletedFormsCommand}" 
-                            HorizontalOptions="FillAndExpand"/>
-                    <Button Text="Далее" 
-                            Command="{Binding NextItemCommand}" 
-                            HorizontalOptions="FillAndExpand"/>
-                </StackLayout>
-
-                <Button Text="Завершить" Command="{Binding FinishCommand}" />
+                <Button Text="Обновить" 
+                        Command="{Binding UpdateDataCommand}" 
+                        HorizontalOptions="FillAndExpand"
+                        Margin="0,10,0,0"/>
             </StackLayout>
         </ScrollView>
-
-        <!-- Сканер QR-кодов -->
-        <zxing:ZXingScannerView x:Name="scannerView"
-                                IsScanning="False"
-                                IsVisible="False"
-                                AutomationId="zxingScannerView"
-                                AbsoluteLayout.LayoutBounds="0,0,1,1"
-                                AbsoluteLayout.LayoutFlags="All" />
     </AbsoluteLayout>
 </ContentPage>

@@ -22,7 +22,7 @@ namespace MyApp.Items
         // Базовые свойства поля
         public int? Id { get; set; }
         public string Label { get; set; }
-        public int? ColumnIndex { get; set; }
+        public int ColumnIndex { get; set; }
 
         // Тип поля (Name/Read/Write)
         public FieldAccessType AccessType { get; set; }

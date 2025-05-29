@@ -10,6 +10,8 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 using ZXing.Mobile;
 using System.Diagnostics;
+using Google.Apis.Sheets.v4.Data;
+using Google.Apis.Sheets.v4;
 
 namespace MyApp.ViewModels
 {
@@ -18,6 +20,7 @@ namespace MyApp.ViewModels
         // Добавляем недостающие команды
         public Command LoadSheetsCommand { get; }
         public Command LoadFormDataCommand { get; }
+        public Command UpdateDataCommand { get; }
 
         // Добавляем недостающее поле
         private readonly Dictionary<string, List<InventoryField>> _formFields = new Dictionary<string, List<InventoryField>>();
@@ -91,6 +94,7 @@ namespace MyApp.ViewModels
 
             LoadSheetsCommand = new Command(async () => await LoadSheetsAsync());
             LoadFormDataCommand = new Command(async () => await LoadFormDataAsync());
+            UpdateDataCommand = new Command(async () => await UpdateDataAsync());
         }
 
         private async Task LoadSheetsAsync()
@@ -117,7 +121,6 @@ namespace MyApp.ViewModels
                 IsBusy = false;
             }
         }
-
         private async Task LoadFormStructureAsync()
         {
             try
@@ -224,7 +227,6 @@ namespace MyApp.ViewModels
                 IsBusy = false;
             }
         }
-
         private async Task LoadFormDataAsync()
         {
             try
@@ -309,7 +311,8 @@ namespace MyApp.ViewModels
                 {
                     SheetName = SelectedSheet,
                     FormType = SelectedFormType,
-                    WriteColumnValues = new Dictionary<int, string>()
+                    WriteColumnValues = new Dictionary<int, string>(),
+                    ReadColumnValues = new Dictionary<int, string>(),
                 };
 
                 foreach (var field in fields)
@@ -362,6 +365,203 @@ namespace MyApp.ViewModels
             {
                 field.IsVisible = showFields;
             }
+        }
+        //
+        private async Task UpdateDataAsync()
+        {
+            try
+            {
+                IsBusy = true;
+
+                var item = new InventoryItem
+                {
+                    SheetName = SelectedSheet,
+                    FormType = SelectedFormType,
+                    Name = Fields.FirstOrDefault(f => f.IsNameField)?.Value,
+                    WriteColumnValues = new Dictionary<int, string>(),
+                };
+
+                foreach (var field in Fields)
+                {
+                    if (field.IsWritable && field.Id.HasValue)
+                    {
+                        item.WriteColumnValues[field.Id.Value] = field.Value;
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(item.Name))
+                {
+                    await Application.Current.MainPage.DisplayAlert("Ошибка", "Поле имени не может быть пустым", "OK");
+                    return;
+                }
+
+                await SaveAndUploadItemAsync(item);
+
+                await Application.Current.MainPage.DisplayAlert("Успех", "Данные успешно обновлены", "OK");
+            }
+            catch (Exception ex)
+            {
+                await ShowErrorAsync("Ошибка при обновлении данных", ex);
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+        private async Task SaveAndUploadItemAsync(InventoryItem item)
+        {
+            // 1. Сохраняем в локальную БД
+            await _repository.SaveItemAsync(item);
+
+            // 2. Получаем структуру формы
+            var structure = await _googleService.GetRangeValuesAsync(
+                Preferences.Get("SpreadsheetId", null),
+                $"{SelectedSheet}!1:5");
+
+            // 3. Определяем границы формы
+            var (startCol, endCol) = GetFormBoundaries(structure, item.FormType);
+
+            // 4. Получаем текущие данные из Google Sheets
+            var sheetData = await GetSheetDataForForm(SelectedSheet, item.FormType, startCol, endCol);
+
+            // 5. Находим строку для обновления/добавления
+            int targetRow = FindTargetRow(sheetData, item.Name, item.FormType);
+
+            // 6. Подготавливаем данные строки
+            var rowData = PrepareRowData(structure, item, startCol, endCol);
+
+            // 7. Обновляем данные в Google Sheets
+            await UpdateRowInGoogleSheets(SelectedSheet, item.FormType, targetRow, rowData, startCol, endCol);
+        }
+        private (int startCol, int endCol) GetFormBoundaries(IList<IList<object>> structure, string formType)
+        {
+            var formTitles = structure[0];
+            var columnNumbers = structure[4];
+
+            int startCol = -1;
+            int endCol = -1;
+
+            // Находим начало формы
+            for (int i = 0; i < formTitles.Count; i++)
+            {
+                if (formTitles[i]?.ToString()?.Trim() == formType)
+                {
+                    startCol = i;
+                    break;
+                }
+            }
+
+            if (startCol == -1)
+                throw new Exception($"Форма '{formType}' не найдена в таблице");
+
+            // Находим конец формы
+            for (int i = startCol; i < columnNumbers.Count; i++)
+            {
+                if (!int.TryParse(columnNumbers[i]?.ToString(), out _))
+                {
+                    endCol = i - 1;
+                    break;
+                }
+                endCol = i;
+            }
+
+            if (endCol == -1)
+                throw new Exception($"Не удалось определить границы формы '{formType}'");
+
+            return (startCol, endCol);
+        }
+        private async Task<IList<IList<object>>> GetSheetDataForForm(string sheetName, string formType, int startCol, int endCol)
+        {
+            string startLetter = ColumnNumberToLetter(startCol + 1);
+            string endLetter = ColumnNumberToLetter(endCol + 1);
+            string range = $"{sheetName}!{startLetter}6:{endLetter}1000";
+
+            return await _googleService.GetRangeValuesAsync(
+                Preferences.Get("SpreadsheetId", null),
+                range);
+        }
+        private int FindTargetRow(IList<IList<object>> sheetData, string itemName, string formType)
+        {
+            if (!_formFields.TryGetValue(formType, out var fields))
+                return -1;
+
+            var nameField = fields.FirstOrDefault(f => f.IsNameField);
+            if (nameField == null)
+                return -1;
+
+            int nameColIndex = nameField.ColumnIndex - 1;
+
+            for (int i = 0; i < sheetData.Count; i++)
+            {
+                if (sheetData[i].Count > nameColIndex &&
+                    sheetData[i][nameColIndex]?.ToString().Trim() == itemName)
+                {
+                    return i + 6; // +6 потому что данные начинаются с 6 строки
+                }
+            }
+
+            // Если не нашли - добавляем в конец
+            return sheetData.Count + 6;
+        }
+        private List<object> PrepareRowData(IList<IList<object>> structure, InventoryItem item, int startCol, int endCol)
+        {
+            var columnNumbers = structure[4];
+            var rowData = new List<object>();
+
+            for (int i = startCol; i <= endCol; i++)
+            {
+                if (!int.TryParse(columnNumbers[i]?.ToString(), out int colNumber))
+                    continue;
+
+                if (_formFields[item.FormType].FirstOrDefault(f => f.ColumnIndex == colNumber)?.IsNameField == true)
+                {
+                    rowData.Add(item.Name);
+                }
+                else if (item.WriteColumnValues.TryGetValue(i, out string value))
+                {
+                    rowData.Add(value);
+                }
+                else
+                {
+                    rowData.Add("");
+                }
+            }
+
+            return rowData;
+        }
+        private async Task UpdateRowInGoogleSheets(string sheetName, string formType, int rowNumber, List<object> rowData, int startCol, int endCol)
+        {
+            string startLetter = ColumnNumberToLetter(startCol + 1);
+            string endLetter = ColumnNumberToLetter(endCol + 1);
+            string range = $"{sheetName}!{startLetter}{rowNumber}:{endLetter}{rowNumber}";
+
+            var valueRange = new ValueRange
+            {
+                Values = new List<IList<object>> { rowData }
+            };
+
+            var request = _googleService.GetService().Spreadsheets.Values.Update(
+                valueRange,
+                Preferences.Get("SpreadsheetId", null),
+                range);
+
+            request.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.USERENTERED;
+
+            await request.ExecuteAsync();
+        }
+        private string ColumnNumberToLetter(int columnNumber)
+        {
+            var dividend = columnNumber;
+            string columnName = string.Empty;
+
+            while (dividend > 0)
+            {
+                var modulo = (dividend - 1) % 26;
+                columnName = Convert.ToChar(65 + modulo) + columnName;
+                dividend = (dividend - modulo) / 26;
+            }
+
+            return columnName;
         }
     }
 }
