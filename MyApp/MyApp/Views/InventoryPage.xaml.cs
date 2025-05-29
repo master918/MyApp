@@ -1,8 +1,12 @@
 ﻿using MyApp.Items;
+using MyApp.Services;
 using MyApp.ViewModels;
+using SQLite;
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Xamarin.Essentials;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using ZXing.Mobile;
@@ -17,7 +21,9 @@ namespace MyApp.Views
             try
             {
                 InitializeComponent();
-                BindingContext = new InventoryViewModel();
+                var googleService = DependencyService.Get<GoogleService>();
+                var repository = new InventoryRepository(new SQLiteAsyncConnection(Path.Combine(FileSystem.AppDataDirectory, "Myapp.db")));
+                BindingContext = new InventoryViewModel(googleService, repository);
             }
             catch (Exception ex)
             {
@@ -34,8 +40,11 @@ namespace MyApp.Views
             if (vm != null)
             {
                 // Загружаем данные после загрузки страницы
-                if (vm.LoadSheetNamesCommand.CanExecute(null))
-                    vm.LoadSheetNamesCommand.Execute(null);
+                if (vm.LoadSheetsCommand.CanExecute(null))
+                {
+                    vm.LoadSheetsCommand.Execute(null);
+                }
+                    
 
                 // Инкрементируем задержку, чтобы все успело загрузиться
                 Device.BeginInvokeOnMainThread(async () =>
@@ -81,6 +90,7 @@ namespace MyApp.Views
         {
             if (sender is Entry entry && entry.BindingContext is InventoryField nameField && nameField.IsNameField)
             {
+                
                 // Скрыть подсказки
                 nameField.SuggestionsVisible = false;
 

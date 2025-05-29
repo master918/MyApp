@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Xamarin.Essentials;
 
@@ -79,38 +80,81 @@ namespace MyApp.Services
                 throw;
             }
         }
+    }
 
-        public static async Task DeleteItemsForFormAsync(string sheetName, string formTitle)
+    public class InventoryRepository
+    {
+        private readonly SQLiteAsyncConnection _database;
+
+        public InventoryRepository(SQLiteAsyncConnection database)
         {
-            await _database.ExecuteAsync("DELETE FROM InventoryItem WHERE SheetName = ? AND FormType = ?", sheetName, formTitle);
-        }
-        public static async Task SaveItemsBatchAsync(List<InventoryItem> items)
-        {
-            try
-            {
-                var s = await LocalDbService.Database.QueryAsync<InventoryItem>("select * from InventoryItem");
-                await _database.InsertAllAsync(items);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Insert items failed: {ex.Message}");
-                throw;
-            }
+            _database = database;
         }
 
-        public static async Task<List<InventoryItem>> GetEntriesAsync(string sheetName, string SelectedFormType)
+        // Получаем все элементы для листа и формы
+        public async Task<List<InventoryItem>> GetItemsAsync(string sheetName, string formType)
         {
-            try
+
+            return await _database.Table<InventoryItem>()
+                .Where(i => i.SheetName == sheetName && i.FormType == formType)
+                .ToListAsync();
+        }
+
+        // Получаем уникальные имена для автодополнения
+        public async Task<List<string>> GetItemNamesAsync(string sheetName, string formType)
+        {
+            var items = await GetItemsAsync(sheetName, formType);
+            return items.Select(i => i.Name)
+                       .Where(n => !string.IsNullOrEmpty(n))
+                       .Distinct()
+                       .ToList();
+        }
+
+        // Получаем значения полей по имени
+        public async Task<Dictionary<int, string>> GetFieldValuesAsync(string sheetName, string formType, string itemName)
+        {
+            var s = await _database.QueryAsync<InventoryItem>("select * from InventoryItem");
+            var item = await _database.Table<InventoryItem>()
+                .FirstOrDefaultAsync(i =>
+                    i.SheetName == sheetName &&
+                    i.FormType == formType &&
+                    i.Name == itemName);
+
+            if (item == null)
+                return new Dictionary<int, string>();
+
+            var result = new Dictionary<int, string>();
+
+            // Добавляем значения из ReadColumnValues
+            if (item.ReadColumnValues != null)
             {
-                return await _database.Table<InventoryItem>()
-                    .Where(e => e.SheetName == sheetName && e.FormType == SelectedFormType)
-                    .ToListAsync();
+                foreach (var pair in item.ReadColumnValues)
+                {
+                    result[pair.Key] = pair.Value;
+                }
             }
-            catch (Exception ex)
+
+            // Добавляем/перезаписываем значениями из WriteColumnValues
+            if (item.WriteColumnValues != null)
             {
-                Debug.WriteLine($"Get entries failed: {ex.Message}");
-                return new List<InventoryItem>();
+                foreach (var pair in item.WriteColumnValues)
+                {
+                    result[pair.Key] = pair.Value;
+                }
             }
+
+            return result;
+        }
+
+
+        // Массовое сохранение
+        public async Task SaveItemsAsync(string sheetName, string formType, IEnumerable<InventoryItem> items)
+        {
+            await _database.RunInTransactionAsync(tx =>
+            {
+                tx.Execute("DELETE FROM InventoryItem WHERE SheetName = ? AND FormType = ?", sheetName, formType);
+                tx.InsertAll(items);
+            });
         }
     }
 }

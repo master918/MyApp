@@ -30,19 +30,18 @@
                 <Picker Title="Помещения"
                         ItemsSource="{Binding SheetNames}"
                         SelectedItem="{Binding SelectedSheet}" 
-                        IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}" />
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
 
                 <!-- Выбор формы ИНВ -->
                 <Picker Title="Форма инвентаризации"
                         ItemsSource="{Binding FormTypes}"
                         SelectedItem="{Binding SelectedFormType}"
-                        IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}"
-                        />
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
 
                 <!-- Индикатор загрузки -->
                 <ActivityIndicator 
-                    IsRunning="{Binding IsLoading}" 
-                    IsVisible="{Binding IsLoading}" 
+                    IsRunning="{Binding IsBusy}" 
+                    IsVisible="{Binding IsBusy}" 
                     HorizontalOptions="Center"
                     VerticalOptions="Center"
                     HeightRequest="50"
@@ -51,8 +50,8 @@
                     Margin="0,10"/>
 
                 <!-- Поля формы -->
-                <StackLayout BindableLayout.ItemsSource="{Binding InventoryFields}"
-                             IsVisible="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}">
+                <StackLayout BindableLayout.ItemsSource="{Binding Fields}"
+                             IsVisible="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
                             <StackLayout Margin="0,5"
@@ -71,9 +70,11 @@
                                     </Label>
                                 </StackLayout>
 
-                                <!-- Поле с автодополнением (только для поля Name) -->
-                                <StackLayout IsVisible="{Binding IsDropdown}">
-                                    <StackLayout IsVisible="{Binding IsReadOnly, Converter={StaticResource InverseBooleanConverter}}">
+                                <!-- Поля редактируемые -->
+                                <StackLayout IsVisible="{Binding IsReadOnly, Converter={StaticResource InverseBooleanConverter}}">
+
+                                    <!-- Поле с автодополнением -->
+                                    <StackLayout IsVisible="{Binding IsNameField}">
                                         <Label Text="{Binding Label}" FontAttributes="Bold" />
                                         <Entry Text="{Binding Value, Mode=TwoWay}"
                                                TextChanged="OnEntryTextChanged"
@@ -96,14 +97,13 @@
                                             </ListView.ItemTemplate>
                                         </ListView>
                                     </StackLayout>
-                                </StackLayout>
 
-                                <!-- Обычное поле ввода (для полей с модификатором W) -->
-                                <StackLayout IsVisible="{Binding IsDropdown, Converter={StaticResource InverseBooleanConverter}}">
-                                    <StackLayout IsVisible="{Binding IsReadOnly, Converter={StaticResource InverseBooleanConverter}}">
+                                    <!-- Обычное поле -->
+                                    <StackLayout IsVisible="{Binding IsNameField, Converter={StaticResource InverseBooleanConverter}}">
                                         <Label Text="{Binding Label}" FontAttributes="Bold" />
                                         <Entry Text="{Binding Value, Mode=TwoWay}" />
                                     </StackLayout>
+
                                 </StackLayout>
                             </StackLayout>
                         </DataTemplate>

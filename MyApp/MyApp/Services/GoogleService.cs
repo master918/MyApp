@@ -11,11 +11,12 @@ using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
 using MyApp.Items;
+using MyApp.Services;
 using Newtonsoft.Json;
 using Xamarin.Essentials;
 using Xamarin.Forms;
 
-
+[assembly: Dependency(typeof(GoogleService))]
 namespace MyApp.Services
 {
     public class GoogleService
@@ -314,6 +315,7 @@ namespace MyApp.Services
 
             var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
             var response = await request.ExecuteAsync();
+            
             return response.Values ?? new List<IList<object>>();
         }
 
