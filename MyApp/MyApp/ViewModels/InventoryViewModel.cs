@@ -34,8 +34,23 @@ namespace MyApp.ViewModels
         {
             if (!string.IsNullOrEmpty(SelectedFormType))
             {
+                // Обновляем поля для нового типа формы
+                if (_formFields.TryGetValue(SelectedFormType, out var newFields))
+                {
+                    Fields.Clear();
+                    foreach (var field in newFields)
+                    {
+                        Fields.Add(field);
+                    }
+                }
+
+                // Обнуляем поле Name
+                foreach (var indexer in Fields.Where(i => i.IsNameField))
+                {
+                    indexer.Value = null;
+                }
+
                 await LoadFormDataAsync();
-                foreach(var indexer in Fields.Where(i => i.IsNameField)) { indexer.Value = null; }
             }
         }
 
