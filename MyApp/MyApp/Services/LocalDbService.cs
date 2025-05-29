@@ -146,7 +146,6 @@ namespace MyApp.Services
             return result;
         }
 
-
         // Массовое сохранение
         public async Task SaveItemsAsync(string sheetName, string formType, IEnumerable<InventoryItem> items)
         {
@@ -155,6 +154,28 @@ namespace MyApp.Services
                 tx.Execute("DELETE FROM InventoryItem WHERE SheetName = ? AND FormType = ?", sheetName, formType);
                 tx.InsertAll(items);
             });
+        }
+
+        public async Task SaveItemAsync(InventoryItem item)
+        {
+            var existingItem = await _database.Table<InventoryItem>()
+                .FirstOrDefaultAsync(i =>
+                    i.SheetName == item.SheetName &&
+                    i.FormType == item.FormType &&
+                    i.Name == item.Name);
+
+            if (existingItem != null)
+            {
+                // Обновляем существующую запись
+                existingItem.WriteColumnValues = item.WriteColumnValues;
+                await _database.UpdateAsync(existingItem);
+            }
+            else
+            {
+                // Добавляем новую запись
+                await _database.InsertAsync(item);
+            }
+            var s = await _database.QueryAsync<InventoryItem>("select * from InventoryItem");
         }
     }
 }

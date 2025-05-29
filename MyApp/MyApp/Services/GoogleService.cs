@@ -363,55 +363,5 @@ namespace MyApp.Services
                 throw;
             }
         }
-        //public async Task UploadInventoryData(InventoryItem currentItem)
-        //{
-        //    var items = await DependencyService.Get<IDataStore<InventoryItem>>().GetItemsAsync();
-        //    var spreadsheetId = Preferences.Get("SpreadsheetId", null);
-
-        //    if (string.IsNullOrEmpty(spreadsheetId))
-        //    {
-        //        throw new InvalidOperationException("Не указан ID таблицы в настройках");
-        //    }
-
-        //    var json = GetCredentialsJson();
-        //    var creds = JsonConvert.DeserializeObject<GoogleServiceAccountCreds>(json);
-
-        //    var credential = new ServiceAccountCredential(
-        //        new ServiceAccountCredential.Initializer(creds.client_email)
-        //        {
-        //            Scopes = new[] { SheetsService.Scope.Spreadsheets }
-        //        }.FromPrivateKey(creds.private_key));
-
-        //    var service = new SheetsService(new BaseClientService.Initializer
-        //    {
-        //        HttpClientInitializer = credential,
-        //        ApplicationName = "MyApp",
-        //    });
-
-        //    // Определяем диапазон для записи
-        //    var range = $"{currentItem.StorageName}!A:G";
-
-        //    // Формируем данные
-        //    var values = new List<IList<object>>();
-        //    foreach (var item in items)
-        //    {
-        //        values.Add(new List<object>
-        //{
-        //    item.Наименование,
-        //    item.Стеллаж,
-        //    item.Полка,
-        //    item.Место,
-        //    item.Количество_фактич,
-        //    item.Доп_описание,
-        //    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
-        //});
-        //    }
-
-        //    var valueRange = new ValueRange { Values = values };
-        //    var request = service.Spreadsheets.Values.Append(valueRange, spreadsheetId, range);
-        //    request.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
-
-        //    await request.ExecuteAsync();
-        //}
     }
 }
