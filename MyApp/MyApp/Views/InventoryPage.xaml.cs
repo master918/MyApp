@@ -1,8 +1,12 @@
 ﻿using MyApp.Items;
+using MyApp.Services;
 using MyApp.ViewModels;
+using SQLite;
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Xamarin.Essentials;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using ZXing.Mobile;
@@ -17,7 +21,9 @@ namespace MyApp.Views
             try
             {
                 InitializeComponent();
-                BindingContext = new InventoryViewModel();
+                var googleService = DependencyService.Get<GoogleService>();
+                var repository = new InventoryRepository(new SQLiteAsyncConnection(Path.Combine(FileSystem.AppDataDirectory, "Myapp.db")));
+                BindingContext = new InventoryViewModel(googleService, repository);
             }
             catch (Exception ex)
             {
@@ -34,8 +40,11 @@ namespace MyApp.Views
             if (vm != null)
             {
                 // Загружаем данные после загрузки страницы
-                if (vm.LoadSheetNamesCommand.CanExecute(null))
-                    vm.LoadSheetNamesCommand.Execute(null);
+                if (vm.LoadSheetsCommand.CanExecute(null))
+                {
+                    vm.LoadSheetsCommand.Execute(null);
+                }
+                    
 
                 // Инкрементируем задержку, чтобы все успело загрузиться
                 Device.BeginInvokeOnMainThread(async () =>
@@ -77,6 +86,21 @@ namespace MyApp.Views
             scannerView.IsScanning = true;
         }
 
+        private void OnNameEntryUnfocused(object sender, FocusEventArgs e)
+        {
+            if (sender is Entry entry && entry.BindingContext is InventoryField nameField && nameField.IsNameField)
+            {
+                
+                // Скрыть подсказки
+                nameField.SuggestionsVisible = false;
+
+                // Обновить видимость других полей
+                if (BindingContext is InventoryViewModel vm)
+                {
+                    vm.UpdateFieldVisibility(nameField.Value);
+                }
+            }
+        }
         private void OnEntryFocused(object sender, FocusEventArgs e)
         {
             if (sender is Entry entry && entry.BindingContext is InventoryField field)
@@ -89,18 +113,6 @@ namespace MyApp.Views
             if (sender is Entry entry && entry.BindingContext is InventoryField field)
             {
                 field.FilterSuggestions(e.NewTextValue);
-            }
-        }
-        private void OnEntryUnfocused(object sender, FocusEventArgs e)
-        {
-            if (sender is Entry entry && entry.BindingContext is InventoryField field)
-            {
-                Device.BeginInvokeOnMainThread(async () =>
-                {
-                    await Task.Delay(200);
-                    field.SuggestionsVisible = false;
-                    field.OnPropertyChanged(nameof(field.SuggestionsVisible));
-                });
             }
         }
 
